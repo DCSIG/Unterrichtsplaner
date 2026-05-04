@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unterrichtsplaner (Timeline & Verzweigungen)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        body { background-color: #f8fafc; }
+
+        /* Druck-Stile */
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; padding: 0; }
+            .node-card, .header-card { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; margin-bottom: 20px; }
+            textarea, input, select { border: none !important; resize: none !important; background: transparent !important; -webkit-appearance: none; appearance: none; }
+            .timeline-line { display: none !important; }
+        }
+
+        /* Stammbaum CSS */
+        .stammbaum-tree ul { padding-top: 20px; position: relative; display: flex; justify-content: center; }
+        .stammbaum-tree li { text-align: center; list-style-type: none; position: relative; padding: 20px 10px 0 10px; }
+        .stammbaum-tree li::before, .stammbaum-tree li::after{ content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid #cbd5e1; width: 50%; height: 20px; }
+        .stammbaum-tree li::after{ right: auto; left: 50%; border-left: 2px solid #cbd5e1; }
+        .stammbaum-tree li:only-child::after, .stammbaum-tree li:only-child::before { display: none; }
+        .stammbaum-tree li:only-child{ padding-top: 0;}
+        .stammbaum-tree li:first-child::before, .stammbaum-tree li:last-child::after{ border: 0 none; }
+        .stammbaum-tree li:last-child::before{ border-right: 2px solid #cbd5e1; border-radius: 0 5px 0 0; }
+        .stammbaum-tree li:first-child::after{ border-radius: 5px 0 0 0; }
+        .stammbaum-tree ul ul::before{ content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid #cbd5e1; width: 0; height: 20px; transform: translateX(-50%); }
+        .stammbaum-node {
+            display: inline-block; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.75rem 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); min-width: 250px; max-width: 350px; text-align: left; transition: transform 0.2s; vertical-align: top;
+        }
+        .stammbaum-node.transition-node { min-width: 180px; max-width: 250px; border: 2px dashed #cbd5e1; background-color: #f8fafc; padding: 0.5rem 1rem; text-align: center; }
+        .stammbaum-node:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="text-slate-800 font-sans p-2 sm:p-6 flex flex-col min-h-screen">
+
+    <!-- App Controls -->
+    <div class="w-full max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 no-print flex-shrink-0">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="text-center md:text-left">
+                <h1 class="text-2xl font-bold text-slate-800 flex items-center justify-center md:justify-start gap-2">
+                    <svg class="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Unterrichtsplaner
+                </h1>
+            </div>
+            <div class="flex flex-wrap justify-center md:justify-end items-center gap-2">
+                <div class="bg-blue-50 text-blue-700 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 border border-blue-100 text-sm" title="Dauer des längsten Pfades">
+                    Gesamt: <span id="total-time">0</span> Min.
+                </div>
+
+                <!-- NEU: Plan Verwaltung (Neu, Speichern, Laden) -->
+                <button onclick="createNewPlan()" class="px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium ml-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    Neu
+                </button>
+                <button onclick="openSaveModal()" class="px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    Speichern
+                </button>
+                <button onclick="openLoadModal()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path></svg>
+                    Laden
+                </button>
+
+                <div class="w-px h-6 bg-slate-300 mx-1 hidden md:block"></div>
+
+                <!-- Exporte -->
+                <button onclick="exportTableHTML()" class="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg transition-colors text-sm font-medium flex items-center gap-1" title="Plan als Tabelle im Querformat exportieren">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    Tabelle
+                </button>
+                <button onclick="exportJSON()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium">Export (JSON)</button>
+                <label class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors cursor-pointer text-sm font-medium mb-0">
+                    Import
+                    <input type="file" accept=".json" onchange="importJSON(event)" class="hidden">
+                </label>
+
+                <!-- Tools -->
+                <button onclick="openStammbaumModal()" class="px-3 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg transition-colors text-sm font-medium flex items-center gap-1 ml-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>Baumdiagramm
+                </button>
+                <button onclick="openSettingsModal()" class="px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition-colors text-sm font-medium flex items-center gap-1 ml-2" title="Felder für Nodes anpassen">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header Data -->
+    <div class="header-card w-full max-w-4xl mx-auto bg-white rounded-xl shadow-md border-t-4 border-indigo-500 p-4 sm:p-6 mb-8 relative z-10">
+        <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">Allgemeine Stundendaten</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Datum</label><input type="date" id="header-datum" onchange="updateHeaderData('datum', this.value)" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded p-2"></div>
+            <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Start-Uhrzeit</label><input type="time" id="header-startzeit" onchange="updateHeaderData('startzeit', this.value)" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded p-2"></div>
+            <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Klasse / Kurs</label><input type="text" id="header-klasse" oninput="updateHeaderData('klasse', this.value)" placeholder="z.B. 9a" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded p-2"></div>
+        </div>
+        <div class="mb-4">
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Stundenthema</label>
+            <input type="text" id="header-thema" oninput="updateHeaderData('thema', this.value)" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded p-2 font-semibold">
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Stundenziele (Grobziele)</label>
+            <textarea id="header-ziele" rows="3" oninput="updateHeaderData('ziele', this.value)" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded p-2"></textarea>
+        </div>
+    </div>
+
+    <div id="dynamic-datalists" class="hidden"></div>
+    <div class="flex-grow w-full max-w-4xl mx-auto relative pb-24" id="timeline-container"></div>
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none no-print z-50">Nachricht hier</div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center z-[60] p-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-200 bg-slate-50"><h3 class="font-bold text-slate-800">Bestätigung</h3></div>
+            <div class="p-4"><p class="text-sm text-slate-600" id="confirm-message">Wirklich fortfahren?</p></div>
+            <div class="p-4 border-t border-slate-200 flex justify-end gap-2 bg-slate-50">
+                <button onclick="closeConfirmModal(false)" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm">Abbrechen</button>
+                <button onclick="closeConfirmModal(true)" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold">Bestätigen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center z-[60] p-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-200 bg-slate-50"><h3 class="font-bold text-slate-800">Hinweis</h3></div>
+            <div class="p-4"><p class="text-sm text-slate-600" id="alert-message">...</p></div>
+            <div class="p-4 border-t border-slate-200 flex justify-end gap-2 bg-slate-50">
+                <button onclick="closeAlertModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEU: Plan Speichern Modal -->
+    <div id="save-modal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center z-[60] p-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-200 bg-slate-50">
+                <h3 class="font-bold text-slate-800">Plan im Browser speichern</h3>
+            </div>
+            <div class="p-4">
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Speichername</label>
+                <input type="text" id="save-name-input" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded focus:ring-indigo-500 focus:border-indigo-500 p-2" placeholder="z.B. Photosynthese - 9a">
+            </div>
+            <div class="p-4 border-t border-slate-200 flex justify-end gap-2 bg-slate-50">
+                <button onclick="closeSaveModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm">Abbrechen</button>
+                <button onclick="executeSave()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEU: Plan Laden Modal -->
+    <div id="load-modal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center z-[60] p-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800">Gespeicherte Pläne laden</h3>
+                <button onclick="closeLoadModal()" class="text-slate-400 hover:text-slate-600">✖</button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-grow bg-slate-50" id="load-list">
+                <!-- List injected here -->
+            </div>
+            <div class="p-4 border-t border-slate-200 flex justify-end bg-white">
+                <button onclick="closeLoadModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-bold">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stammbaum Modal -->
+    <div id="stammbaum-modal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center z-50 p-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-6xl overflow-hidden flex flex-col h-[90vh]">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800 flex items-center gap-2">Baumdiagramm Übersicht</h3>
+                <button onclick="closeStammbaumModal()" class="text-slate-400 hover:text-slate-600">✖</button>
+            </div>
+            <div class="p-6 flex-grow overflow-auto bg-slate-50 flex justify-center items-start">
+                <div class="stammbaum-tree" id="stammbaum-container"></div>
+            </div>
+            <div class="p-4 border-t border-slate-200 flex justify-end gap-2 bg-white">
+                <button onclick="exportStammbaumSVG()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold">Als SVG speichern</button>
+                <button onclick="closeStammbaumModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-bold">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center z-50 p-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800">Felder anpassen</h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400">✖</button>
+            </div>
+            <div class="p-3 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
+                <span class="text-xs text-indigo-800">Vorlagen verwalten:</span>
+                <div class="flex gap-2">
+                    <button onclick="exportSchemaFile()" class="px-3 py-1 bg-white border rounded text-indigo-700 text-xs">Export</button>
+                    <label class="px-3 py-1 bg-white border rounded text-indigo-700 text-xs cursor-pointer">Import<input type="file" accept=".json" onchange="importSchemaFile(event)" class="hidden"></label>
+                </div>
+            </div>
+            <div class="p-4 flex-grow overflow-y-auto bg-slate-50">
+                <div id="settings-schema-list" class="space-y-3"></div>
+                <button onclick="addFieldToSchema()" class="mt-4 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm w-full font-bold border-dashed">+ Neues Feld</button>
+            </div>
+            <div class="p-4 border-t border-slate-200 flex justify-end gap-2 bg-white">
+                <button onclick="closeSettingsModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm">Abbrechen</button>
+                <button onclick="saveSettings()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center z-50 p-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center"><h3 class="font-bold text-slate-800">Export Daten</h3><button onclick="closeExportModal()" class="text-slate-400">✖</button></div>
+            <div class="p-4 flex-grow"><textarea id="export-textarea" class="w-full h-64 p-3 bg-slate-50 border rounded font-mono text-xs" readonly></textarea></div>
+            <div class="p-4 border-t border-slate-200 flex justify-end gap-2 bg-slate-50">
+                <button onclick="closeExportModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm">Schließen</button>
+                <button onclick="copyExportText()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Kopieren</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const phaseColors = {
+            'Einstieg': 'border-emerald-500',
+            'Erarbeitung': 'border-blue-500',
+            'Sicherung': 'border-amber-500',
+            'Transfer': 'border-purple-500',
+            'Puffer/Sonstiges': 'border-gray-400'
+        };
+
+        const defaultSchema = [
+            { id: 'phase', label: 'Phase', type: 'select', width: '1', options: 'Einstieg, Erarbeitung, Sicherung, Transfer, Puffer/Sonstiges' },
+            { id: 'dauer', label: 'Dauer (Minuten)', type: 'number', width: '1' },
+            { id: 'feinziel', label: 'Feinziel (für diese Phase)', type: 'text', width: '4' },
+            { id: 'lehrer', label: 'Lehreraktivität', type: 'textarea', width: '4' },
+            { id: 'sus', label: 'SuS-Aktivität', type: 'textarea', width: '4' },
+            { id: 'sozialform', label: 'Sozialform', type: 'select', width: '2', options: 'Plenum, Einzelarbeit, Partnerarbeit, Gruppenarbeit, Stuhlkreis, Lehrervortrag' },
+            { id: 'medien', label: 'Medien/Material', type: 'text', width: '2' }
+        ];
+
+        let globalState = { headerInfo: { datum: new Date().toISOString().split('T')[0], startzeit: '08:00', klasse: '', thema: '', ziele: '' }, schema: JSON.parse(JSON.stringify(defaultSchema)), rootIds: [], activeRoot: 0, nodes: {} };
+        let editingSchema = [];
+        let confirmAction = null;
+        let currentSaveId = null; // NEU: ID des aktuell geladenen Plans
+
+        function showConfirm(msg, callback) { document.getElementById('confirm-message').innerText = msg; confirmAction = callback; document.getElementById('confirm-modal').classList.remove('hidden'); }
+        function closeConfirmModal(res) { document.getElementById('confirm-modal').classList.add('hidden'); if (res && confirmAction) confirmAction(); confirmAction = null; }
+        function showAlert(msg) { document.getElementById('alert-message').innerText = msg; document.getElementById('alert-modal').classList.remove('hidden'); }
+        function closeAlertModal() { document.getElementById('alert-modal').classList.add('hidden'); }
+        function showToast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.classList.remove('opacity-0'); setTimeout(() => t.classList.add('opacity-0'), 3000); }
+
+        function init() {
+            const saved = localStorage.getItem('unterrichtsplaner_dag'); // Lädt den letzten Auto-Save (Draft)
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    // Abwärtskompatibilität: Prüfen ob neues Wrapper-Format (state, saveId) oder altes Format
+                    if (parsed.state) {
+                        globalState = { ...globalState, ...parsed.state };
+                        currentSaveId = parsed.saveId || null;
+                    } else {
+                        globalState = { ...globalState, ...parsed };
+                    }
+
+                    if (!globalState.headerInfo) globalState.headerInfo = { datum: new Date().toISOString().split('T')[0], startzeit: '08:00', klasse: '', thema: '', ziele: '' };
+                    if (!globalState.schema || globalState.schema.length === 0) {
+                        globalState.schema = JSON.parse(JSON.stringify(defaultSchema));
+                    } else {
+                        globalState.schema = globalState.schema.filter(f => f.id !== 'datum');
+                        globalState.schema.forEach(f => {
+                            if ((f.id === 'lehrer' || f.id === 'sus') && f.width === '2') f.width = '4';
+                        });
+                    }
+                } catch(e) { initNewState(); }
+            } else initNewState();
+
+            if (!globalState.rootIds || globalState.rootIds.length === 0) initNewState();
+            populateHeaderFields(); buildDatalists(); renderTimeline();
+        }
+
+        // --- NEU: Auto-Save ---
+        function autoSave() {
+            localStorage.setItem('unterrichtsplaner_dag', JSON.stringify({ state: globalState, saveId: currentSaveId }));
+        }
+
+        function initNewState() {
+            const firstNode = createNodeData(); firstNode.phase = 'Einstieg'; firstNode.dauer = 10;
+            globalState.rootIds = [firstNode.id]; globalState.activeRoot = 0; globalState.nodes = { [firstNode.id]: firstNode };
+            globalState.headerInfo = { datum: new Date().toISOString().split('T')[0], startzeit: '08:00', klasse: '', thema: '', ziele: '' };
+        }
+
+        function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+        function createNodeData(isTransition = false) {
+            let newNode = { id: generateId(), nextIds: [], activeNextIndex: 0, isTransition: isTransition };
+            if (isTransition) { newNode.transitionText = ''; newNode.dauer = 0; }
+            else { newNode.dauer = 15; newNode.phase = 'Erarbeitung'; }
+            return newNode;
+        }
+
+        function populateHeaderFields() {
+            document.getElementById('header-datum').value = globalState.headerInfo.datum || '';
+            document.getElementById('header-startzeit').value = globalState.headerInfo.startzeit || '';
+            document.getElementById('header-klasse').value = globalState.headerInfo.klasse || '';
+            document.getElementById('header-thema').value = globalState.headerInfo.thema || '';
+            document.getElementById('header-ziele').value = globalState.headerInfo.ziele || '';
+        }
+
+        function updateHeaderData(field, value) { globalState.headerInfo[field] = value; if (field === 'startzeit') renderTimeline(); autoSave(); }
+        function addMinutesToTime(timeStr, mins) {
+            if (!timeStr || isNaN(mins) || mins == 0) return timeStr;
+            let [h, m] = timeStr.split(':').map(Number);
+            let d = new Date(); d.setHours(h, m, 0, 0); d.setMinutes(d.getMinutes() + Number(mins));
+            return d.toTimeString().substring(0, 5);
+        }
+
+        function buildDatalists() {
+            let html = '';
+            globalState.schema.forEach(f => {
+                if (f.type === 'select' && f.options) {
+                    html += `<datalist id="datalist-${f.id}">`;
+                    f.options.split(',').forEach(o => html += `<option value="${o.trim()}"></option>`);
+                    html += `</datalist>`;
+                }
+            });
+            document.getElementById('dynamic-datalists').innerHTML = html;
+        }
+
+        function getActivePath() {
+            let path = []; let curr = globalState.rootIds[globalState.activeRoot];
+            while (curr && globalState.nodes[curr]) {
+                path.push(curr); let node = globalState.nodes[curr];
+                if (node.nextIds && node.nextIds.length > 0) {
+                    if (path.includes(node.nextIds[node.activeNextIndex])) break;
+                    curr = node.nextIds[node.activeNextIndex];
+                } else curr = null;
+            }
+            return path;
+        }
+
+        function switchAlt(idx, dir) {
+            const p = getActivePath();
+            if (idx === 0) { let m = globalState.rootIds.length; globalState.activeRoot = (globalState.activeRoot + dir + m) % m; }
+            else { let par = globalState.nodes[p[idx - 1]]; let m = par.nextIds.length; par.activeNextIndex = (par.activeNextIndex + dir + m) % m; }
+            renderTimeline();
+        }
+
+        function addAlt(idx) {
+            const p = getActivePath(); let curr = globalState.nodes[p[idx]];
+            let nn = createNodeData(curr.isTransition);
+            nn.nextIds = [...curr.nextIds]; nn.activeNextIndex = curr.activeNextIndex;
+            globalState.nodes[nn.id] = nn;
+            if (idx === 0) { globalState.rootIds.push(nn.id); globalState.activeRoot = globalState.rootIds.length - 1; }
+            else { let par = globalState.nodes[p[idx - 1]]; par.nextIds.push(nn.id); par.activeNextIndex = par.nextIds.length - 1; }
+            renderTimeline(); showToast('Alternative hinzugefügt');
+        }
+
+        function removeAlternativePath(idx) {
+            showConfirm('Diesen kompletten alternativen Zweig verwerfen?', () => {
+                const p = getActivePath();
+                if (idx === 0) { globalState.rootIds.splice(globalState.activeRoot, 1); globalState.activeRoot = Math.max(0, globalState.activeRoot - 1); }
+                else { let par = globalState.nodes[p[idx - 1]]; par.nextIds.splice(par.activeNextIndex, 1); par.activeNextIndex = Math.max(0, par.activeNextIndex - 1); }
+                renderTimeline(); showToast('Zweig gelöscht');
+            });
+        }
+
+        function removeNodeUI(idx) {
+            showConfirm('Diesen Block löschen?', () => {
+                const p = getActivePath(); let n = globalState.nodes[p[idx]];
+                let cid = n.nextIds && n.nextIds.length > 0 ? n.nextIds[n.activeNextIndex || 0] : null;
+                if (idx === 0) {
+                    if (cid) globalState.rootIds[globalState.activeRoot] = cid;
+                    else { globalState.rootIds.splice(globalState.activeRoot, 1); if(globalState.rootIds.length === 0) initNewState(); else globalState.activeRoot = Math.max(0, globalState.activeRoot - 1); }
+                } else {
+                    let par = globalState.nodes[p[idx - 1]];
+                    if (cid) par.nextIds[par.activeNextIndex || 0] = cid;
+                    else { par.nextIds.splice(par.activeNextIndex || 0, 1); par.activeNextIndex = Math.max(0, (par.activeNextIndex || 0) - 1); }
+                }
+                renderTimeline(); showToast('Gelöscht');
+            });
+        }
+
+        function insertPhase(idx, isTrans = false) {
+            const p = getActivePath(); let par = globalState.nodes[p[idx]]; let cid = par.nextIds[par.activeNextIndex];
+            let nn = createNodeData(isTrans); nn.nextIds = [cid]; globalState.nodes[nn.id] = nn;
+            par.nextIds[par.activeNextIndex] = nn.id; renderTimeline();
+        }
+
+        function addNextPhase(idx, isTrans = false) {
+            const p = getActivePath(); let par = globalState.nodes[p[idx]];
+            let nn = createNodeData(isTrans); globalState.nodes[nn.id] = nn;
+            par.nextIds.push(nn.id); par.activeNextIndex = par.nextIds.length - 1;
+            renderTimeline(); setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+        }
+
+        function exportNode(nodeId) {
+            const node = globalState.nodes[nodeId];
+            if (!node) return;
+
+            const nodeCopy = { ...node }; delete nodeCopy.id; delete nodeCopy.nextIds; delete nodeCopy.activeNextIndex; nodeCopy._isSingleNode = true;
+            const jsonStr = JSON.stringify(nodeCopy, null, 2);
+            let phaseName = nodeCopy.isTransition ? 'Uebergang' : (nodeCopy.phase || "Phase");
+            let feinzielText = nodeCopy.isTransition ? (nodeCopy.transitionText || "Leer") : (nodeCopy.feinziel || "OhneFeinziel");
+            let cleanPhase = phaseName.replace(/[^a-z0-9äöüß-]/gi, '_');
+            let cleanFeinziel = feinzielText.replace(/[^a-z0-9äöüß-]/gi, '_').substring(0, 30);
+            const filename = `${cleanPhase}_${cleanFeinziel}.json`;
+
+            try {
+                const blob = new Blob([jsonStr], { type: "application/json" }); const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url);
+                showToast('Phase als Vorlage exportiert!');
+            } catch (error) { showAlert('Export fehlgeschlagen.'); }
+        }
+
+        function importNode(event, pathIndex, isInsert) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (!imported._isSingleNode && !imported.phase && !imported.isTransition) { showAlert('Die gewählte Datei scheint keine gültige Phasenvorlage zu sein.'); return; }
+                    let newNode = { ...imported }; newNode.id = generateId(); newNode.nextIds = []; newNode.activeNextIndex = 0; delete newNode._isSingleNode;
+                    globalState.nodes[newNode.id] = newNode; const path = getActivePath();
+                    if (isInsert) {
+                        let parentId = path[pathIndex]; let parent = globalState.nodes[parentId]; let childId = parent.nextIds[parent.activeNextIndex];
+                        newNode.nextIds = [childId]; parent.nextIds[parent.activeNextIndex] = newNode.id;
+                    } else {
+                        let parentId = path[pathIndex]; let parent = globalState.nodes[parentId];
+                        parent.nextIds.push(newNode.id); parent.activeNextIndex = parent.nextIds.length - 1;
+                    }
+                    renderTimeline(); showToast('Phasenvorlage erfolgreich geladen!');
+                    if (!isInsert) setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+                } catch(err) { showAlert('Fehler beim Lesen der Phasendatei.'); }
+            };
+            reader.readAsText(file); event.target.value = '';
+        }
+
+        function updateNodeData(id, fid, val) {
+            if (globalState.nodes[id]) {
+                globalState.nodes[id][fid] = val;
+                if (fid === 'dauer') renderTimeline();
+                if (fid === 'phase' && !globalState.nodes[id].isTransition) {
+                    const el = document.getElementById(`card-body-${id}`);
+                    if (el) { Object.values(phaseColors).forEach(c => el.classList.remove(c)); el.classList.add(phaseColors[val] || phaseColors['Puffer/Sonstiges']); }
+                }
+                autoSave();
+            }
+        }
+
+        function calculateMaxTime(nid, memo = {}) {
+            if (!nid || !globalState.nodes[nid]) return 0;
+            if (memo[nid] !== undefined) return memo[nid];
+            let t = Number(globalState.nodes[nid].dauer) || 0; let m = 0;
+            (globalState.nodes[nid].nextIds || []).forEach(nx => m = Math.max(m, calculateMaxTime(nx, memo)));
+            memo[nid] = t + m; return memo[nid];
+        }
+
+        function renderTimeline() {
+            const c = document.getElementById('timeline-container'); c.innerHTML = '';
+            const p = getActivePath(); let cTime = globalState.headerInfo.startzeit;
+
+            p.forEach((nid, idx) => {
+                const node = globalState.nodes[nid]; const isLast = idx === p.length - 1;
+                let pList = idx === 0 ? globalState.rootIds : globalState.nodes[p[idx-1]].nextIds;
+                let aIdx = idx === 0 ? globalState.activeRoot : globalState.nodes[p[idx-1]].activeNextIndex;
+                let hasAlt = pList.length > 1;
+
+                let sTime = cTime; let eTime = '';
+                if (cTime && node.dauer > 0) { eTime = addMinutesToTime(cTime, node.dauer); cTime = eTime; }
+                let timeDisp = (!node.isTransition && sTime && eTime) ? `<div class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-1 rounded ml-2 shadow-sm">${sTime} - ${eTime} Uhr</div>` : '';
+
+                let dynHtml = '';
+                if (node.isTransition) {
+                    dynHtml = `<div class="w-full"><textarea rows="2" oninput="updateNodeData('${node.id}', 'transitionText', this.value)" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm italic rounded p-3 text-center shadow-inner" placeholder="Gelenkstelle / Übergang / Lehrerimpuls...">${node.transitionText || ''}</textarea></div>`;
+                } else {
+                    dynHtml = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">`;
+                    globalState.schema.forEach(f => {
+                        let val = node[f.id] !== undefined ? node[f.id] : '';
+                        let colClass = (f.width === '4') ? 'col-span-1 sm:col-span-2 lg:col-span-4' : (f.width === '2' ? 'col-span-1 sm:col-span-2' : 'col-span-1');
+                        let inpHtml = ''; let evt = (f.type === 'text' || f.type === 'textarea' || f.type === 'select') ? 'oninput' : 'onchange';
+                        if (f.type === 'textarea') inpHtml = `<textarea rows="2" ${evt}="updateNodeData('${node.id}', '${f.id}', this.value)" class="w-full bg-slate-50 border border-slate-200 rounded p-2 text-sm">${val}</textarea>`;
+                        else if (f.type === 'select') inpHtml = `<input type="text" list="datalist-${f.id}" ${evt}="updateNodeData('${node.id}', '${f.id}', this.value)" value="${val}" class="w-full bg-slate-50 border border-slate-200 rounded p-2 text-sm">`;
+                        else inpHtml = `<input type="${f.type}" ${f.type==='number'?'min="0"':''} ${evt}="updateNodeData('${node.id}', '${f.id}', this.value)" value="${val}" class="w-full bg-slate-50 border border-slate-200 rounded p-2 text-sm">`;
+                        dynHtml += `<div class="${colClass}"><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1 truncate">${f.label}</label>${inpHtml}</div>`;
+                    });
+                    dynHtml += `</div>`;
+                }
+
+                const wrap = document.createElement('div'); wrap.className = 'relative flex flex-col items-center w-full';
+                const bcClass = node.isTransition ? 'border-slate-300' : (phaseColors[node.phase] || phaseColors['Puffer/Sonstiges']);
+                const wStyle = node.isTransition ? 'border-2 border-dashed border-slate-300 bg-slate-50' : 'bg-white shadow-md hover:shadow-lg';
+                const bStyle = node.isTransition ? 'p-3' : `p-3 sm:p-5 border-l-8 ${bcClass} rounded-b-xl`;
+
+                wrap.innerHTML = `
+                    <div class="node-card w-full rounded-xl relative z-10 transition-all ${wStyle}">
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center p-2 sm:px-4 rounded-t-xl ${node.isTransition ? 'bg-slate-100 border-b border-dashed' : 'bg-slate-50 border-b'} border-slate-200 gap-2 sm:gap-0">
+                            <div class="flex items-center gap-2">
+                                ${hasAlt ? `<button onclick="switchAlt(${idx}, -1)" class="p-1 bg-white border rounded shadow-sm text-xs">◀</button><span class="text-[10px] font-bold text-slate-500 uppercase">Weg ${aIdx + 1}/${pList.length}</span><button onclick="switchAlt(${idx}, 1)" class="p-1 bg-white border rounded shadow-sm text-xs">▶</button>`
+                                : `<span class="text-[10px] font-bold text-slate-400 uppercase">${node.isTransition ? 'Übergang' : 'Hauptweg'}</span>`}
+                                ${timeDisp}
+                            </div>
+                            <div class="flex items-center justify-end gap-2 no-print">
+                                ${hasAlt ? `<button onclick="removeAlternativePath(${idx})" class="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200 hover:bg-red-100">Zweig löschen</button>` : ''}
+                                <button onclick="addAlt(${idx})" class="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded border border-purple-200 hover:bg-purple-100">Alternative</button>
+                                <div class="w-px h-4 bg-slate-300 mx-1 hidden sm:block"></div>
+                                <button onclick="exportNode('${node.id}')" class="p-1 text-slate-400 hover:text-indigo-600" title="Block als Vorlage exportieren">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                </button>
+                                <button onclick="removeNodeUI(${idx})" class="p-1 text-slate-400 hover:text-red-600" title="Block löschen">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="card-body-${node.id}" class="${bStyle}">${dynHtml}</div>
+                    </div>
+                    <div class="timeline-line w-1 h-12 bg-slate-200 flex items-center justify-center">
+                        ${!isLast ? `<div class="no-print absolute flex gap-1 z-10 bg-white p-1 rounded-full shadow-sm border border-slate-200">
+                            <button onclick="insertPhase(${idx}, false)" class="w-6 h-6 bg-slate-100 rounded-full hover:bg-blue-500 hover:text-white flex justify-center items-center" title="Phase einfügen">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            </button>
+                            <button onclick="insertPhase(${idx}, true)" class="w-6 h-6 bg-slate-100 rounded-full hover:bg-emerald-500 hover:text-white flex justify-center items-center" title="Übergang einfügen">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-8m-4 8l-4-8"></path></svg>
+                            </button>
+                            <label class="w-6 h-6 bg-slate-100 rounded-full hover:bg-indigo-500 hover:text-white flex justify-center items-center cursor-pointer" title="Vorlage importieren">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                <input type="file" accept=".json" onchange="importNode(event, ${idx}, true)" class="hidden">
+                            </label>
+                        </div>` : ''}
+                    </div>
+                `;
+                c.appendChild(wrap);
+            });
+
+            const fBtn = document.createElement('div'); fBtn.className = 'no-print flex flex-wrap justify-center mt-[-10px] gap-2 relative z-10';
+            fBtn.innerHTML = `
+                <button onclick="addNextPhase(${p.length - 1}, false)" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full shadow-lg flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m0 0l-4-4m4 4l4-4"></path></svg> Phase
+                </button>
+                <button onclick="addNextPhase(${p.length - 1}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-8m-4 8l-4-8"></path></svg> Übergang
+                </button>
+                <label class="bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    Importieren
+                    <input type="file" accept=".json" onchange="importNode(event, ${p.length - 1}, false)" class="hidden">
+                </label>
+            `;
+            c.appendChild(fBtn);
+
+            let tm = 0; let m = {}; globalState.rootIds.forEach(r => tm = Math.max(tm, calculateMaxTime(r, m)));
+            document.getElementById('total-time').innerText = tm;
+            autoSave(); // Sichern nach jedem Rendern
+        }
+
+        // --- NEU: Plan verwalten (Neu, Speichern, Laden) ---
+        function createNewPlan() {
+            showConfirm('Aktuellen Plan wirklich verwerfen und einen neuen, leeren Plan starten? (Ungespeicherte Änderungen gehen verloren)', () => {
+                currentSaveId = null;
+                initNewState();
+                populateHeaderFields();
+                buildDatalists();
+                renderTimeline();
+                showToast('Neuer Plan erstellt');
+            });
+        }
+
+        function openSaveModal() {
+            let defaultName = globalState.headerInfo.thema || 'Unbenannter Plan';
+            if(globalState.headerInfo.klasse) defaultName += ' - ' + globalState.headerInfo.klasse;
+
+            document.getElementById('save-name-input').value = defaultName;
+            document.getElementById('save-modal').classList.remove('hidden');
+        }
+
+        function closeSaveModal() { document.getElementById('save-modal').classList.add('hidden'); }
+
+        function executeSave() {
+            const name = document.getElementById('save-name-input').value.trim() || 'Unbenannter Plan';
+            let saves = JSON.parse(localStorage.getItem('unterrichtsplaner_saves') || '[]');
+
+            if (currentSaveId) {
+                let existing = saves.find(s => s.id === currentSaveId);
+                if (existing) {
+                    existing.name = name;
+                    existing.timestamp = new Date().toISOString();
+                    existing.state = globalState;
+                } else {
+                    currentSaveId = generateId();
+                    saves.push({ id: currentSaveId, name, timestamp: new Date().toISOString(), state: globalState });
+                }
+            } else {
+                currentSaveId = generateId();
+                saves.push({ id: currentSaveId, name, timestamp: new Date().toISOString(), state: globalState });
+            }
+
+            localStorage.setItem('unterrichtsplaner_saves', JSON.stringify(saves));
+            autoSave();
+            closeSaveModal();
+            showToast('Plan gespeichert!');
+        }
+
+        function openLoadModal() {
+            renderLoadList();
+            document.getElementById('load-modal').classList.remove('hidden');
+        }
+
+        function closeLoadModal() { document.getElementById('load-modal').classList.add('hidden'); }
+
+        function renderLoadList() {
+            let saves = JSON.parse(localStorage.getItem('unterrichtsplaner_saves') || '[]');
+            let container = document.getElementById('load-list');
+            if (saves.length === 0) {
+                container.innerHTML = '<p class="text-sm text-slate-500">Keine gespeicherten Pläne gefunden.</p>';
+                return;
+            }
+
+            saves.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)); // Neueste zuerst
+
+            let html = '';
+            saves.forEach(s => {
+                let dateStr = new Date(s.timestamp).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
+                let isActive = s.id === currentSaveId ? '<span class="bg-green-100 text-green-800 text-[10px] px-2 py-0.5 rounded font-bold ml-2">Aktiv</span>' : '';
+                html += `
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center p-3 border border-slate-200 rounded mb-2 bg-white gap-2 sm:gap-0">
+                        <div>
+                            <div class="font-bold text-sm text-slate-800 flex items-center">${s.name} ${isActive}</div>
+                            <div class="text-xs text-slate-500">Zuletzt gespeichert: ${dateStr}</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="loadPlan('${s.id}')" class="px-3 py-1 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded text-xs font-bold transition-colors">Laden</button>
+                            <button onclick="deletePlan('${s.id}')" class="px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded text-xs font-bold transition-colors">Löschen</button>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function loadPlan(id) {
+            let saves = JSON.parse(localStorage.getItem('unterrichtsplaner_saves') || '[]');
+            let s = saves.find(x => x.id === id);
+            if (s) {
+                globalState = s.state;
+                currentSaveId = s.id;
+                populateHeaderFields();
+                buildDatalists();
+                renderTimeline();
+                autoSave();
+                closeLoadModal();
+                showToast('Plan geladen');
+            }
+        }
+
+        function deletePlan(id) {
+            showConfirm('Möchtest du diesen gespeicherten Plan wirklich löschen?', () => {
+                let saves = JSON.parse(localStorage.getItem('unterrichtsplaner_saves') || '[]');
+                saves = saves.filter(x => x.id !== id);
+                localStorage.setItem('unterrichtsplaner_saves', JSON.stringify(saves));
+                if(currentSaveId === id) currentSaveId = null;
+                renderLoadList();
+                showToast('Plan gelöscht');
+            });
+        }
+
+        // --- Stammbaum & Export ---
+        function openStammbaumModal() { document.getElementById('stammbaum-container').innerHTML = generateStammbaumHTML(globalState.rootIds); document.getElementById('stammbaum-modal').classList.remove('hidden'); }
+        function closeStammbaumModal() { document.getElementById('stammbaum-modal').classList.add('hidden'); }
+
+        function generateStammbaumHTML(nIds, vis = new Set()) {
+            if (!nIds || nIds.length === 0) return '';
+            let html = '<ul>';
+            nIds.forEach(id => {
+                const node = globalState.nodes[id]; if (!node) return;
+                let isCyc = vis.has(id); let nVis = new Set(vis); nVis.add(id);
+
+                if (node.isTransition) {
+                    html += `<li><div class="stammbaum-node transition-node"><div class="text-xs italic text-slate-600 line-clamp-3">${(node.transitionText||'Übergang').replace(/"/g,'&quot;')}</div></div>`;
+                } else {
+                    let bc = phaseColors[node.phase] || phaseColors['Puffer/Sonstiges']; let cH = '';
+                    globalState.schema.forEach(f => {
+                        if (f.id !== 'phase' && f.id !== 'dauer' && f.id !== 'datum' && node[f.id]) {
+                            cH += `<div class="mt-2 text-left"><span class="block font-bold text-[9px] text-slate-400 uppercase">${f.label}</span><span class="block text-[11px] text-slate-700 line-clamp-3">${node[f.id].replace(/"/g,'&quot;')}</span></div>`;
+                        }
+                    });
+                    html += `<li><div class="stammbaum-node border-t-4 ${bc}"><div class="font-bold text-sm">${node.phase||'Phase'}</div><div class="text-xs text-slate-500">${node.dauer||0} Min.</div>${cH ? `<div class="border-t border-slate-100 mt-2 pt-1">${cH}</div>`:''}</div>`;
+                }
+                if (!isCyc && node.nextIds.length > 0) html += generateStammbaumHTML(node.nextIds, nVis);
+                else if (isCyc) html += `<div class="text-xs text-red-500 mt-2 font-bold">(Schleife)</div>`;
+                html += `</li>`;
+            });
+            return html + '</ul>';
+        }
+
+        function exportStammbaumSVG() {
+            const cont = document.getElementById('stammbaum-container'); if (!cont) return;
+            const svgStyles = `<style>* { box-sizing: border-box; font-family: sans-serif; } .stammbaum-tree ul { padding-top: 20px; position: relative; display: flex; justify-content: center; margin: 0; padding-left: 0; } .stammbaum-tree li { text-align: center; list-style-type: none; position: relative; padding: 20px 10px 0 10px; } .stammbaum-tree li::before, .stammbaum-tree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid #cbd5e1; width: 50%; height: 20px; } .stammbaum-tree li::after { right: auto; left: 50%; border-left: 2px solid #cbd5e1; } .stammbaum-tree li:only-child::after, .stammbaum-tree li:only-child::before { display: none; } .stammbaum-tree li:only-child { padding-top: 0; } .stammbaum-tree li:first-child::before, .stammbaum-tree li:last-child::after { border: 0 none; } .stammbaum-tree li:last-child::before { border-right: 2px solid #cbd5e1; border-radius: 0 5px 0 0; } .stammbaum-tree li:first-child::after { border-radius: 5px 0 0 0; } .stammbaum-tree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid #cbd5e1; width: 0; height: 20px; transform: translateX(-50%); } .stammbaum-node { display: inline-block; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.75rem 1rem; min-width: 250px; max-width: 350px; text-align: left; vertical-align: top; box-shadow: 0 2px 4px rgba(0,0,0,0.05); } .stammbaum-node.transition-node { min-width: 180px; max-width: 250px; border: 2px dashed #cbd5e1; background-color: #f8fafc; padding: 0.5rem 1rem; text-align: center; } .border-t-4 { border-top-width: 4px; border-top-style: solid; } .border-emerald-500 { border-top-color: #10b981; } .border-blue-500 { border-top-color: #3b82f6; } .border-amber-500 { border-top-color: #f59e0b; } .border-purple-500 { border-top-color: #8b5cf6; } .border-gray-400 { border-top-color: #9ca3af; } .font-bold { font-weight: 700; } .text-sm { font-size: 0.875rem; } .text-xs { font-size: 0.75rem; } .italic { font-style: italic; } .text-center { text-align: center; } .text-\\[9px\\] { font-size: 9px; } .text-\\[11px\\] { font-size: 11px; } .text-slate-800 { color: #1e293b; } .text-slate-700 { color: #334155; } .text-slate-600 { color: #475569; } .text-slate-500 { color: #64748b; } .text-slate-400 { color: #94a3b8; } .block { display: block; } .uppercase { text-transform: uppercase; } .mt-2 { margin-top: 0.5rem; } .pt-1 { padding-top: 0.25rem; } .border-t { border-top: 1px solid #f1f5f9; } .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }</style>`;
+            const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${cont.scrollWidth+40}" height="${cont.scrollHeight+40}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="padding:20px;background:#f8fafc;width:100%;height:100%;box-sizing:border-box;">${svgStyles}<div class="stammbaum-tree">${cont.innerHTML}</div></div></foreignObject></svg>`;
+            const a = document.createElement('a'); a.download = `Baumdiagramm_${globalState.headerInfo.datum}.svg`;
+            a.href = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' })); a.click(); showToast('Exportiert!');
+        }
+
+        function exportTableHTML() {
+            autoSave(); // NEU: Automatisch im Browser sichern vor dem Tabellen-Export
+
+            const path = getActivePath();
+            if (path.length === 0) {
+                showAlert('Der Plan ist leer. Es gibt nichts zu exportieren.');
+                return;
+            }
+
+            let totalTime = 0;
+            path.forEach(nid => {
+                let node = globalState.nodes[nid];
+                if (!node.isTransition) totalTime += (Number(node.dauer) || 0);
+            });
+
+            let startTime = globalState.headerInfo.startzeit || '08:00';
+            let endTime = addMinutesToTime(startTime, totalTime);
+
+            let rawDate = globalState.headerInfo.datum || '';
+            let fmtDate = rawDate ? rawDate.split('-').reverse().join('.') : '[TT.MM.JJJJ]';
+
+            let zieleList = '';
+            if (globalState.headerInfo.ziele && globalState.headerInfo.ziele.trim() !== '') {
+                let lines = globalState.headerInfo.ziele.split('\n');
+                lines.forEach(l => {
+                    if(l.trim() !== '') zieleList += `<li>${l.trim().replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`;
+                });
+            } else {
+                zieleList = '<li>[Lernziele hier eintragen]</li>';
+            }
+
+            let rowsHtml = '';
+            let currentTime = startTime;
+
+            path.forEach(nid => {
+                let node = globalState.nodes[nid];
+                if (node.isTransition) {
+                    let text = (node.transitionText || '').replace(/\n/g, '<br>').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    rowsHtml += `<tr><td colspan="4" class="transition-row">Übergang: ${text}</td></tr>`;
+                } else {
+                    let nDauer = Number(node.dauer) || 0;
+                    let nStartTime = currentTime;
+                    let nEndTime = addMinutesToTime(currentTime, nDauer);
+                    currentTime = nEndTime;
+
+                    let lAktiv = (node.lehrer || '').replace(/\n/g, '<br>').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    let sAktiv = (node.sus || '').replace(/\n/g, '<br>').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    let soz = (node.sozialform || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    let med = (node.medien || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    let ziel = (node.feinziel || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+                    if (ziel) {
+                        rowsHtml += `<tr><td colspan="4" class="feinziel-row"><strong>Phase: ${node.phase || 'Phase'} | Feinziel:</strong> ${ziel}</td></tr>`;
+                    }
+
+                    let sozMedHtml = soz;
+                    if (soz && med) sozMedHtml += '<br>';
+                    sozMedHtml += med;
+
+                    rowsHtml += `
+                    <tr>
+                        <td><strong>${node.phase || 'Phase'}</strong><br><br>[${nStartTime} - ${nEndTime}]<br>(${nDauer} Min.)</td>
+                        <td>${lAktiv}</td>
+                        <td>${sAktiv}</td>
+                        <td>${sozMedHtml}</td>
+                    </tr>`;
+                }
+            });
+
+            let htmlString = `<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Strukturskizze - ${globalState.headerInfo.thema || 'Unterricht'}</title>
+    <style>
+        @page { size: landscape; margin: 15mm; }
+        body { font-family: 'Carlito', Arial, sans-serif; line-height: 1.5; color: #333; max-width: 270mm; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 10px; }
+        .meta-info { text-align: center; font-size: 12pt; margin-bottom: 20px; }
+        .learning-objectives { margin-bottom: 20px; }
+        .learning-objectives h2 { font-size: 12pt; font-weight: bold; margin-bottom: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; page-break-inside: auto; }
+        tr { page-break-inside: avoid; page-break-after: auto; }
+        th, td { border: 1px solid #000; padding: 10px; vertical-align: top; font-size: 11pt; }
+        th { background-color: #e0e0e0; text-align: left; }
+        .transition-row { background-color: #f0f8ff; text-align: center; font-style: italic; font-weight: bold; padding: 6px; }
+        .feinziel-row { background-color: #fafafa; font-style: italic; padding: 6px; border-bottom: 2px solid #ccc; }
+        .time-col { width: 15%; }
+        .teacher-col { width: 30%; }
+        .student-col { width: 30%; }
+        .media-col { width: 25%; }
+        .print-btn { display: block; margin: 0 auto 20px auto; padding: 10px 20px; background-color: #2563eb; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; text-align: center; }
+        @media print { .print-btn { display: none !important; } }
+    </style>
+</head>
+<body>
+    <button class="print-btn" onclick="window.print()">🖨️ Tabelle drucken / als PDF speichern</button>
+
+    <div class="header">
+        Strukturskizze: ${globalState.headerInfo.thema || '[Thema der Unterrichtsstunde]'}
+    </div>
+
+    <div class="meta-info">
+        Klasse: ${globalState.headerInfo.klasse || '[Klasse]'} | Datum: ${fmtDate} | Zeit: ${startTime} - ${endTime} (${totalTime} Min.)
+    </div>
+
+    <div class="learning-objectives">
+        <h2>Die Schülerinnen und Schüler können nach dieser Stunde:</h2>
+        <ul>
+            ${zieleList}
+        </ul>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th class="time-col">Phase / Zeit</th>
+                <th class="teacher-col">Aktivitäten Lehrperson (LP)</th>
+                <th class="student-col">Aktivitäten SuS</th>
+                <th class="media-col">Sozialform / Medien</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rowsHtml}
+        </tbody>
+    </table>
+</body>
+</html>`;
+
+            const blob = new Blob([htmlString], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+
+            let themaClean = (globalState.headerInfo.thema || 'Strukturskizze').replace(/[^a-z0-9äöüß-]/gi, '_');
+            a.download = `${themaClean}_Tabelle.html`;
+            a.href = url;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast('HTML-Tabelle exportiert!');
+        }
+
+        // --- Settings / Schema Verwaltung ---
+        function openSettingsModal() { editingSchema = JSON.parse(JSON.stringify(globalState.schema)); renderSettingsSchema(); document.getElementById('settings-modal').classList.remove('hidden'); }
+        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+        function renderSettingsSchema() {
+            let h = ''; editingSchema.forEach((f, i) => {
+                let sW = (v) => f.width === v ? 'selected' : ''; let sT = (v) => f.type === v ? 'selected' : '';
+                h += `<div class="flex flex-col sm:flex-row gap-2 p-3 border rounded bg-white items-start sm:items-center"><div class="flex-grow grid grid-cols-4 gap-2 w-full">
+                    <div><label class="text-[10px] font-bold text-slate-500">NAME</label><input type="text" value="${f.label}" oninput="editingSchema[${i}].label=this.value" class="w-full p-1 border rounded text-sm bg-slate-50"></div>
+                    <div><label class="text-[10px] font-bold text-slate-500">TYP</label><select onchange="editingSchema[${i}].type=this.value;renderSettingsSchema()" class="w-full p-1 border rounded text-sm bg-slate-50"><option value="text" ${sT('text')}>Text</option><option value="textarea" ${sT('textarea')}>Area</option><option value="number" ${sT('number')}>Zahl</option><option value="select" ${sT('select')}>Select</option></select></div>
+                    <div><label class="text-[10px] font-bold text-slate-500">BREITE</label><select onchange="editingSchema[${i}].width=this.value" class="w-full p-1 border rounded text-sm bg-slate-50"><option value="1" ${sW('1')}>1/4</option><option value="2" ${sW('2')}>1/2</option><option value="4" ${sW('4')}>Voll</option></select></div>
+                    <div class="${f.type==='select'?'':'opacity-30 pointer-events-none'}"><label class="text-[10px] font-bold text-slate-500">OPTIONS</label><input type="text" value="${f.options||''}" oninput="editingSchema[${i}].options=this.value" class="w-full p-1 border rounded text-sm bg-slate-50"></div>
+                </div><button onclick="editingSchema.splice(${i},1);renderSettingsSchema()" class="text-red-500 ml-2 hover:bg-red-50 p-2 rounded">✖</button></div>`;
+            });
+            document.getElementById('settings-schema-list').innerHTML = h;
+        }
+        function addFieldToSchema() { editingSchema.push({ id: 'f_'+generateId(), label: 'Neues Feld', type: 'text', width: '4', options: '' }); renderSettingsSchema(); }
+        function saveSettings() { globalState.schema = JSON.parse(JSON.stringify(editingSchema)); buildDatalists(); renderTimeline(); closeSettingsModal(); showToast('Feld-Einstellungen gespeichert!'); }
+
+        function exportSchemaFile() {
+            const blob = new Blob([JSON.stringify(editingSchema, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob); const a = document.createElement('a');
+            a.href = url; a.download = "unterricht_knoten_vorlage.json"; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+            showToast('Vorlage exportiert');
+        }
+        function importSchemaFile(e) {
+            const r = new FileReader(); r.onload = (ev) => {
+                try { let imp = JSON.parse(ev.target.result); if(Array.isArray(imp) && imp.length>0 && imp[0].id) { editingSchema = imp; renderSettingsSchema(); showToast('Geladen (Speichern nicht vergessen!)'); } else showAlert('Ungültige Datei'); } catch(err){showAlert('Fehler');}
+            }; r.readAsText(e.target.files[0]); e.target.value='';
+        }
+
+        // --- Gesamtdaten Export / Import ---
+        function exportJSON() {
+            autoSave(); // NEU: Automatisch im Browser sichern vor dem Datei-Export
+
+            let vis = new Set(); function m(id) { if(vis.has(id)) return; vis.add(id); (globalState.nodes[id]?.nextIds||[]).forEach(m); }
+            globalState.rootIds.forEach(m); let cN = {}; vis.forEach(id => cN[id] = globalState.nodes[id]);
+
+            let exportData = JSON.stringify({ headerInfo: globalState.headerInfo, schema: globalState.schema, rootIds: globalState.rootIds, activeRoot: globalState.activeRoot, nodes: cN }, null, 2);
+            document.getElementById('export-textarea').value = exportData;
+
+            let t = (globalState.headerInfo.thema||'Plan').replace(/[^a-z0-9äöüß-]/gi,'_'); let d = globalState.headerInfo.datum||'Datum'; let k = (globalState.headerInfo.klasse||'Klasse').replace(/[^a-z0-9äöüß-]/gi,'_');
+            const fn = `${t}_${d}_${k}.json`;
+            try {
+                const url = URL.createObjectURL(new Blob([exportData], {type: "application/json"}));
+                const a = document.createElement('a'); a.href = url; a.download = fn; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+            } catch(e) {}
+            document.getElementById('export-modal').classList.remove('hidden');
+        }
+        function closeExportModal() { document.getElementById('export-modal').classList.add('hidden'); }
+        function copyExportText() { document.getElementById('export-textarea').select(); document.execCommand('copy'); showToast('In Zwischenablage kopiert!'); }
+
+        function importJSON(e) {
+            const r = new FileReader(); r.onload = (ev) => {
+                try {
+                    let p = JSON.parse(ev.target.result);
+                    if (p.nodes && p.rootIds) {
+                        globalState = p;
+                        currentSaveId = null; // Als neuen Plan laden (nicht an eine bestehende Browser-ID binden)
+                        init();
+                        showToast('Plan erfolgreich importiert');
+                    } else showAlert('Ungültiges Dateiformat.');
+                } catch(err) { showAlert('Fehler beim Lesen der Datei.'); }
+            }; r.readAsText(e.target.files[0]); e.target.value = '';
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
