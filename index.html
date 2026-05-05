@@ -57,7 +57,7 @@
                 <div class="bg-blue-50 text-blue-700 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 border border-blue-100 text-sm" title="Dauer des längsten Pfades">
                     Gesamt: <span id="total-time">0</span> Min.
                 </div>
-
+                
                 <!-- NEU: Plan Verwaltung (Neu, Speichern, Laden) -->
                 <button onclick="createNewPlan()" class="px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium ml-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -302,7 +302,7 @@
 
         function createNodeData(isTransition = false) {
             let newNode = { id: generateId(), nextIds: [], activeNextIndex: 0, isTransition: isTransition };
-            if (isTransition) { newNode.transitionText = ''; newNode.dauer = 0; }
+            if (isTransition) { newNode.transitionText = ''; newNode.dauer = 0; } 
             else { newNode.dauer = 15; newNode.phase = 'Erarbeitung'; }
             return newNode;
         }
@@ -349,7 +349,7 @@
 
         function switchAlt(idx, dir) {
             const p = getActivePath();
-            if (idx === 0) { let m = globalState.rootIds.length; globalState.activeRoot = (globalState.activeRoot + dir + m) % m; }
+            if (idx === 0) { let m = globalState.rootIds.length; globalState.activeRoot = (globalState.activeRoot + dir + m) % m; } 
             else { let par = globalState.nodes[p[idx - 1]]; let m = par.nextIds.length; par.activeNextIndex = (par.activeNextIndex + dir + m) % m; }
             renderTimeline();
         }
@@ -359,7 +359,7 @@
             let nn = createNodeData(curr.isTransition);
             nn.nextIds = [...curr.nextIds]; nn.activeNextIndex = curr.activeNextIndex;
             globalState.nodes[nn.id] = nn;
-            if (idx === 0) { globalState.rootIds.push(nn.id); globalState.activeRoot = globalState.rootIds.length - 1; }
+            if (idx === 0) { globalState.rootIds.push(nn.id); globalState.activeRoot = globalState.rootIds.length - 1; } 
             else { let par = globalState.nodes[p[idx - 1]]; par.nextIds.push(nn.id); par.activeNextIndex = par.nextIds.length - 1; }
             renderTimeline(); showToast('Alternative hinzugefügt');
         }
@@ -367,7 +367,7 @@
         function removeAlternativePath(idx) {
             showConfirm('Diesen kompletten alternativen Zweig verwerfen?', () => {
                 const p = getActivePath();
-                if (idx === 0) { globalState.rootIds.splice(globalState.activeRoot, 1); globalState.activeRoot = Math.max(0, globalState.activeRoot - 1); }
+                if (idx === 0) { globalState.rootIds.splice(globalState.activeRoot, 1); globalState.activeRoot = Math.max(0, globalState.activeRoot - 1); } 
                 else { let par = globalState.nodes[p[idx - 1]]; par.nextIds.splice(par.activeNextIndex, 1); par.activeNextIndex = Math.max(0, par.activeNextIndex - 1); }
                 renderTimeline(); showToast('Zweig gelöscht');
             });
@@ -441,7 +441,7 @@
                     if (!isInsert) setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
                 } catch(err) { showAlert('Fehler beim Lesen der Phasendatei.'); }
             };
-            reader.readAsText(file); event.target.value = '';
+            reader.readAsText(file); event.target.value = ''; 
         }
 
         function updateNodeData(id, fid, val) {
@@ -504,7 +504,7 @@
                     <div class="node-card w-full rounded-xl relative z-10 transition-all ${wStyle}">
                         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center p-2 sm:px-4 rounded-t-xl ${node.isTransition ? 'bg-slate-100 border-b border-dashed' : 'bg-slate-50 border-b'} border-slate-200 gap-2 sm:gap-0">
                             <div class="flex items-center gap-2">
-                                ${hasAlt ? `<button onclick="switchAlt(${idx}, -1)" class="p-1 bg-white border rounded shadow-sm text-xs">◀</button><span class="text-[10px] font-bold text-slate-500 uppercase">Weg ${aIdx + 1}/${pList.length}</span><button onclick="switchAlt(${idx}, 1)" class="p-1 bg-white border rounded shadow-sm text-xs">▶</button>`
+                                ${hasAlt ? `<button onclick="switchAlt(${idx}, -1)" class="p-1 bg-white border rounded shadow-sm text-xs">◀</button><span class="text-[10px] font-bold text-slate-500 uppercase">Weg ${aIdx + 1}/${pList.length}</span><button onclick="switchAlt(${idx}, 1)" class="p-1 bg-white border rounded shadow-sm text-xs">▶</button>` 
                                 : `<span class="text-[10px] font-bold text-slate-400 uppercase">${node.isTransition ? 'Übergang' : 'Hauptweg'}</span>`}
                                 ${timeDisp}
                             </div>
@@ -556,8 +556,16 @@
             `;
             c.appendChild(fBtn);
 
-            let tm = 0; let m = {}; globalState.rootIds.forEach(r => tm = Math.max(tm, calculateMaxTime(r, m)));
+            // NEU: Berechnet nur noch die Zeit des aktuell aktiven Pfades (p)
+            let tm = 0;
+            p.forEach(nid => {
+                const node = globalState.nodes[nid];
+                if (node && !node.isTransition) {
+                    tm += (Number(node.dauer) || 0);
+                }
+            });
             document.getElementById('total-time').innerText = tm;
+            
             autoSave(); // Sichern nach jedem Rendern
         }
 
@@ -576,7 +584,7 @@
         function openSaveModal() {
             let defaultName = globalState.headerInfo.thema || 'Unbenannter Plan';
             if(globalState.headerInfo.klasse) defaultName += ' - ' + globalState.headerInfo.klasse;
-
+            
             document.getElementById('save-name-input').value = defaultName;
             document.getElementById('save-modal').classList.remove('hidden');
         }
@@ -586,7 +594,7 @@
         function executeSave() {
             const name = document.getElementById('save-name-input').value.trim() || 'Unbenannter Plan';
             let saves = JSON.parse(localStorage.getItem('unterrichtsplaner_saves') || '[]');
-
+            
             if (currentSaveId) {
                 let existing = saves.find(s => s.id === currentSaveId);
                 if (existing) {
@@ -601,7 +609,7 @@
                 currentSaveId = generateId();
                 saves.push({ id: currentSaveId, name, timestamp: new Date().toISOString(), state: globalState });
             }
-
+            
             localStorage.setItem('unterrichtsplaner_saves', JSON.stringify(saves));
             autoSave();
             closeSaveModal();
@@ -622,9 +630,9 @@
                 container.innerHTML = '<p class="text-sm text-slate-500">Keine gespeicherten Pläne gefunden.</p>';
                 return;
             }
-
+            
             saves.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)); // Neueste zuerst
-
+            
             let html = '';
             saves.forEach(s => {
                 let dateStr = new Date(s.timestamp).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
@@ -681,7 +689,7 @@
             nIds.forEach(id => {
                 const node = globalState.nodes[id]; if (!node) return;
                 let isCyc = vis.has(id); let nVis = new Set(vis); nVis.add(id);
-
+                
                 if (node.isTransition) {
                     html += `<li><div class="stammbaum-node transition-node"><div class="text-xs italic text-slate-600 line-clamp-3">${(node.transitionText||'Übergang').replace(/"/g,'&quot;')}</div></div>`;
                 } else {
@@ -710,7 +718,7 @@
 
         function exportTableHTML() {
             autoSave(); // NEU: Automatisch im Browser sichern vor dem Tabellen-Export
-
+            
             const path = getActivePath();
             if (path.length === 0) {
                 showAlert('Der Plan ist leer. Es gibt nichts zu exportieren.');
@@ -732,8 +740,8 @@
             let zieleList = '';
             if (globalState.headerInfo.ziele && globalState.headerInfo.ziele.trim() !== '') {
                 let lines = globalState.headerInfo.ziele.split('\n');
-                lines.forEach(l => {
-                    if(l.trim() !== '') zieleList += `<li>${l.trim().replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`;
+                lines.forEach(l => { 
+                    if(l.trim() !== '') zieleList += `<li>${l.trim().replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`; 
                 });
             } else {
                 zieleList = '<li>[Lernziele hier eintragen]</li>';
@@ -840,7 +848,7 @@
             const blob = new Blob([htmlString], { type: 'text/html;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-
+            
             let themaClean = (globalState.headerInfo.thema || 'Strukturskizze').replace(/[^a-z0-9äöüß-]/gi, '_');
             a.download = `${themaClean}_Tabelle.html`;
             a.href = url;
@@ -848,7 +856,7 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-
+            
             showToast('HTML-Tabelle exportiert!');
         }
 
@@ -869,7 +877,7 @@
         }
         function addFieldToSchema() { editingSchema.push({ id: 'f_'+generateId(), label: 'Neues Feld', type: 'text', width: '4', options: '' }); renderSettingsSchema(); }
         function saveSettings() { globalState.schema = JSON.parse(JSON.stringify(editingSchema)); buildDatalists(); renderTimeline(); closeSettingsModal(); showToast('Feld-Einstellungen gespeichert!'); }
-
+        
         function exportSchemaFile() {
             const blob = new Blob([JSON.stringify(editingSchema, null, 2)], { type: "application/json" });
             const url = URL.createObjectURL(blob); const a = document.createElement('a');
@@ -888,10 +896,10 @@
 
             let vis = new Set(); function m(id) { if(vis.has(id)) return; vis.add(id); (globalState.nodes[id]?.nextIds||[]).forEach(m); }
             globalState.rootIds.forEach(m); let cN = {}; vis.forEach(id => cN[id] = globalState.nodes[id]);
-
+            
             let exportData = JSON.stringify({ headerInfo: globalState.headerInfo, schema: globalState.schema, rootIds: globalState.rootIds, activeRoot: globalState.activeRoot, nodes: cN }, null, 2);
             document.getElementById('export-textarea').value = exportData;
-
+            
             let t = (globalState.headerInfo.thema||'Plan').replace(/[^a-z0-9äöüß-]/gi,'_'); let d = globalState.headerInfo.datum||'Datum'; let k = (globalState.headerInfo.klasse||'Klasse').replace(/[^a-z0-9äöüß-]/gi,'_');
             const fn = `${t}_${d}_${k}.json`;
             try {
@@ -902,19 +910,48 @@
         }
         function closeExportModal() { document.getElementById('export-modal').classList.add('hidden'); }
         function copyExportText() { document.getElementById('export-textarea').select(); document.execCommand('copy'); showToast('In Zwischenablage kopiert!'); }
-
+        
         function importJSON(e) {
-            const r = new FileReader(); r.onload = (ev) => {
-                try {
-                    let p = JSON.parse(ev.target.result);
-                    if (p.nodes && p.rootIds) {
-                        globalState = p;
+            const file = e.target.files[0];
+            if (!file) return;
+            const r = new FileReader(); 
+            r.onload = (ev) => {
+                try { 
+                    let p = JSON.parse(ev.target.result); 
+                    
+                    // Kompatibilität: Prüfen, ob es das neue (mit Metadaten) oder alte Format ist
+                    let importedState = p.state ? p.state : p;
+
+                    if (importedState.nodes && importedState.rootIds) { 
+                        globalState = importedState; 
                         currentSaveId = null; // Als neuen Plan laden (nicht an eine bestehende Browser-ID binden)
-                        init();
-                        showToast('Plan erfolgreich importiert');
-                    } else showAlert('Ungültiges Dateiformat.');
-                } catch(err) { showAlert('Fehler beim Lesen der Datei.'); }
-            }; r.readAsText(e.target.files[0]); e.target.value = '';
+                        
+                        // Fallback & Migration für alte Pläne direkt beim Import
+                        if (!globalState.headerInfo) globalState.headerInfo = { datum: new Date().toISOString().split('T')[0], startzeit: '08:00', klasse: '', thema: '', ziele: '' };
+                        if (!globalState.schema || globalState.schema.length === 0) {
+                            globalState.schema = JSON.parse(JSON.stringify(defaultSchema));
+                        } else {
+                            globalState.schema = globalState.schema.filter(f => f.id !== 'datum');
+                            globalState.schema.forEach(f => {
+                                if ((f.id === 'lehrer' || f.id === 'sus') && f.width === '2') f.width = '4';
+                            });
+                        }
+
+                        // Oberfläche aktualisieren statt init() aufzurufen (was den localStorage laden würde)
+                        populateHeaderFields();
+                        buildDatalists();
+                        renderTimeline(); // Löst am Ende automatisch autoSave() aus
+                        
+                        showToast('Plan erfolgreich importiert'); 
+                    } else {
+                        showAlert('Ungültiges Dateiformat.'); 
+                    }
+                } catch(err) { 
+                    showAlert('Fehler beim Lesen der Datei.'); 
+                }
+            }; 
+            r.readAsText(file); 
+            e.target.value = '';
         }
 
         document.addEventListener('DOMContentLoaded', init);
