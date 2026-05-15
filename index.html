@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Unterrichtsplaner (Timeline & Verzweigungen)</title>
+    
+    <!-- Dynamisches Emoji-Favicon (📚) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom Scrollbar */
@@ -49,8 +53,7 @@
         <div class="flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="text-center md:text-left">
                 <h1 class="text-2xl font-bold text-slate-800 flex items-center justify-center md:justify-start gap-2">
-                    <svg class="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Unterrichtsplaner
+                    <span class="text-2xl">📚</span> Unterrichtsplaner
                 </h1>
             </div>
             <div class="flex flex-wrap justify-center md:justify-end items-center gap-2">
@@ -58,8 +61,16 @@
                     Gesamt: <span id="total-time">0</span> Min.
                 </div>
                 
-                <!-- NEU: Plan Verwaltung (Neu, Speichern, Laden) -->
-                <button onclick="createNewPlan()" class="px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium ml-2">
+                <!-- PWA Install Button (Versteckt per default) -->
+                <button id="pwa-install-btn" onclick="installPWA()" class="hidden px-3 py-2 bg-amber-100 border border-amber-300 hover:bg-amber-200 text-amber-900 rounded-lg transition-colors flex items-center gap-1 text-sm font-bold shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    App Installieren
+                </button>
+                
+                <div class="w-px h-6 bg-slate-300 mx-1 hidden md:block"></div>
+                
+                <!-- Plan Verwaltung -->
+                <button onclick="createNewPlan()" class="px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     Neu
                 </button>
@@ -72,24 +83,29 @@
                     Laden
                 </button>
 
-                <div class="w-px h-6 bg-slate-300 mx-1 hidden md:block"></div>
-
-                <!-- Exporte -->
-                <button onclick="exportTableHTML()" class="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg transition-colors text-sm font-medium flex items-center gap-1" title="Plan als Tabelle im Querformat exportieren">
+                <!-- Exporte & Importe -->
+                <button onclick="exportTableHTML()" class="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg transition-colors text-sm font-medium flex items-center gap-1 ml-2" title="Plan als Tabelle im Querformat exportieren">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                     Tabelle
                 </button>
-                <button onclick="exportJSON()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium">Export (JSON)</button>
-                <label class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors cursor-pointer text-sm font-medium mb-0">
+                
+                <button onclick="openExportModal()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium flex items-center gap-1" title="Plan als JSON exportieren">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Export (JSON)
+                </button>
+                
+                <button onclick="openImportModal()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium flex items-center gap-1" title="JSON importieren">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                     Import
-                    <input type="file" accept=".json" onchange="importJSON(event)" class="hidden">
-                </label>
+                </button>
 
                 <!-- Tools -->
-                <button onclick="openStammbaumModal()" class="px-3 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg transition-colors text-sm font-medium flex items-center gap-1 ml-2">
+                <div class="w-px h-6 bg-slate-300 mx-1 hidden md:block"></div>
+                
+                <button onclick="openStammbaumModal()" class="px-3 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg transition-colors text-sm font-medium flex items-center gap-1">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>Baumdiagramm
                 </button>
-                <button onclick="openSettingsModal()" class="px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition-colors text-sm font-medium flex items-center gap-1 ml-2" title="Felder für Nodes anpassen">
+                <button onclick="openSettingsModal()" class="px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition-colors text-sm font-medium flex items-center gap-1" title="Felder für Nodes anpassen">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 </button>
             </div>
@@ -116,7 +132,8 @@
 
     <div id="dynamic-datalists" class="hidden"></div>
     <div class="flex-grow w-full max-w-4xl mx-auto relative pb-24" id="timeline-container"></div>
-    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none no-print z-50">Nachricht hier</div>
+    
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none no-print z-[80]">Nachricht hier</div>
 
     <!-- Confirm Modal -->
     <div id="confirm-modal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center z-[60] p-4 no-print">
@@ -141,7 +158,7 @@
         </div>
     </div>
 
-    <!-- NEU: Plan Speichern Modal -->
+    <!-- Plan Speichern Modal -->
     <div id="save-modal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center z-[60] p-4 no-print">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
             <div class="p-4 border-b border-slate-200 bg-slate-50">
@@ -158,7 +175,7 @@
         </div>
     </div>
 
-    <!-- NEU: Plan Laden Modal -->
+    <!-- Plan Laden Modal -->
     <div id="load-modal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center z-[60] p-4 no-print">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]">
             <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
@@ -218,17 +235,106 @@
 
     <!-- Export Modal -->
     <div id="export-modal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center z-50 p-4 no-print">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col">
-            <div class="p-4 border-b border-slate-200 flex justify-between items-center"><h3 class="font-bold text-slate-800">Export Daten</h3><button onclick="closeExportModal()" class="text-slate-400">✖</button></div>
-            <div class="p-4 flex-grow"><textarea id="export-textarea" class="w-full h-64 p-3 bg-slate-50 border rounded font-mono text-xs" readonly></textarea></div>
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800 flex items-center gap-2">Export (JSON)</h3>
+                <button onclick="closeExportModal()" class="text-slate-400 hover:text-slate-800">✖</button>
+            </div>
+            <div class="p-4 flex-grow bg-white">
+                <p class="text-xs text-slate-500 mb-2">Hier ist der JSON-Quellcode deines Plans. Du kannst ihn kopieren oder als Datei speichern.</p>
+                <textarea id="export-textarea" class="w-full h-64 p-3 bg-slate-50 border border-slate-300 rounded font-mono text-xs focus:outline-none" readonly></textarea>
+            </div>
             <div class="p-4 border-t border-slate-200 flex justify-end gap-2 bg-slate-50">
+                <button onclick="downloadExportFile()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold flex items-center gap-1">Als Datei speichern 💾</button>
+                <button onclick="copyExportText()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold">Kopieren</button>
                 <button onclick="closeExportModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm">Schließen</button>
-                <button onclick="copyExportText()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Kopieren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="import-modal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center z-50 p-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800 flex items-center gap-2">Plan Importieren</h3>
+                <button onclick="closeImportModal()" class="text-slate-400 hover:text-slate-800">✖</button>
+            </div>
+            <div class="p-4 flex-grow bg-white">
+                <p class="text-xs text-slate-500 mb-2">Füge hier einen JSON-Code ein <b>oder</b> lade eine .json Datei hoch.</p>
+                <textarea id="import-textarea" class="w-full h-48 p-3 bg-slate-50 border border-slate-300 rounded font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="JSON Code hier einfügen..."></textarea>
+                
+                <div class="mt-4 flex items-center justify-center w-full">
+                    <label for="dropzone-file" class="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                            <p class="mb-1 text-sm text-slate-500 font-bold"><span class="text-indigo-600">Klicke zum Hochladen</span> einer Datei</p>
+                            <p class="text-xs text-slate-500">.json Datei auswählen</p>
+                        </div>
+                        <input id="dropzone-file" type="file" accept=".json" class="hidden" onchange="importFromFile(event)" />
+                    </label>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-200 flex justify-between gap-2 bg-slate-50">
+                <button onclick="importFromTextarea()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold flex items-center gap-1">Code aus Textfeld laden</button>
+                <button onclick="closeImportModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm">Abbrechen</button>
             </div>
         </div>
     </div>
 
     <script>
+        // --- PWA (Progressive Web App) Setup ---
+        (function initPWA() {
+            // Dynamische Erzeugung der manifest.json
+            const manifest = {
+                name: "Unterrichtsplaner",
+                short_name: "U-Planer",
+                start_url: ".",
+                display: "standalone",
+                background_color: "#f8fafc",
+                theme_color: "#3b82f6",
+                icons: [{
+                    src: "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>",
+                    sizes: "any",
+                    type: "image/svg+xml"
+                }]
+            };
+            const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+            const manifestUrl = URL.createObjectURL(manifestBlob);
+            document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestUrl}">`);
+
+            // Dynamische Erzeugung des Service Workers
+            const swCode = `
+                self.addEventListener('install', (e) => self.skipWaiting());
+                self.addEventListener('activate', (e) => self.clients.claim());
+                self.addEventListener('fetch', (e) => {});
+            `;
+            const swBlob = new Blob([swCode], {type: 'text/javascript'});
+            const swUrl = URL.createObjectURL(swBlob);
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register(swUrl).catch(err => console.log('SW Registration Failed:', err));
+            }
+        })();
+
+        // PWA Install Prompt Logic
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('pwa-install-btn').classList.remove('hidden');
+        });
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        document.getElementById('pwa-install-btn').classList.add('hidden');
+                    }
+                    deferredPrompt = null;
+                });
+            }
+        }
+
+        // --- Core Application State ---
         const phaseColors = {
             'Einstieg': 'border-emerald-500',
             'Erarbeitung': 'border-blue-500',
@@ -250,7 +356,7 @@
         let globalState = { headerInfo: { datum: new Date().toISOString().split('T')[0], startzeit: '08:00', klasse: '', thema: '', ziele: '' }, schema: JSON.parse(JSON.stringify(defaultSchema)), rootIds: [], activeRoot: 0, nodes: {} };
         let editingSchema = [];
         let confirmAction = null;
-        let currentSaveId = null; // NEU: ID des aktuell geladenen Plans
+        let currentSaveId = null;
 
         function showConfirm(msg, callback) { document.getElementById('confirm-message').innerText = msg; confirmAction = callback; document.getElementById('confirm-modal').classList.remove('hidden'); }
         function closeConfirmModal(res) { document.getElementById('confirm-modal').classList.add('hidden'); if (res && confirmAction) confirmAction(); confirmAction = null; }
@@ -259,11 +365,10 @@
         function showToast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.classList.remove('opacity-0'); setTimeout(() => t.classList.add('opacity-0'), 3000); }
 
         function init() {
-            const saved = localStorage.getItem('unterrichtsplaner_dag'); // Lädt den letzten Auto-Save (Draft)
+            const saved = localStorage.getItem('unterrichtsplaner_dag');
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
-                    // Abwärtskompatibilität: Prüfen ob neues Wrapper-Format (state, saveId) oder altes Format
                     if (parsed.state) {
                         globalState = { ...globalState, ...parsed.state };
                         currentSaveId = parsed.saveId || null;
@@ -287,7 +392,6 @@
             populateHeaderFields(); buildDatalists(); renderTimeline();
         }
 
-        // --- NEU: Auto-Save ---
         function autoSave() {
             localStorage.setItem('unterrichtsplaner_dag', JSON.stringify({ state: globalState, saveId: currentSaveId }));
         }
@@ -316,6 +420,7 @@
         }
 
         function updateHeaderData(field, value) { globalState.headerInfo[field] = value; if (field === 'startzeit') renderTimeline(); autoSave(); }
+        
         function addMinutesToTime(timeStr, mins) {
             if (!timeStr || isNaN(mins) || mins == 0) return timeStr;
             let [h, m] = timeStr.split(':').map(Number);
@@ -402,48 +507,6 @@
             renderTimeline(); setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
         }
 
-        function exportNode(nodeId) {
-            const node = globalState.nodes[nodeId];
-            if (!node) return;
-
-            const nodeCopy = { ...node }; delete nodeCopy.id; delete nodeCopy.nextIds; delete nodeCopy.activeNextIndex; nodeCopy._isSingleNode = true;
-            const jsonStr = JSON.stringify(nodeCopy, null, 2);
-            let phaseName = nodeCopy.isTransition ? 'Uebergang' : (nodeCopy.phase || "Phase");
-            let feinzielText = nodeCopy.isTransition ? (nodeCopy.transitionText || "Leer") : (nodeCopy.feinziel || "OhneFeinziel");
-            let cleanPhase = phaseName.replace(/[^a-z0-9äöüß-]/gi, '_');
-            let cleanFeinziel = feinzielText.replace(/[^a-z0-9äöüß-]/gi, '_').substring(0, 30);
-            const filename = `${cleanPhase}_${cleanFeinziel}.json`;
-
-            try {
-                const blob = new Blob([jsonStr], { type: "application/json" }); const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url);
-                showToast('Phase als Vorlage exportiert!');
-            } catch (error) { showAlert('Export fehlgeschlagen.'); }
-        }
-
-        function importNode(event, pathIndex, isInsert) {
-            const file = event.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const imported = JSON.parse(e.target.result);
-                    if (!imported._isSingleNode && !imported.phase && !imported.isTransition) { showAlert('Die gewählte Datei scheint keine gültige Phasenvorlage zu sein.'); return; }
-                    let newNode = { ...imported }; newNode.id = generateId(); newNode.nextIds = []; newNode.activeNextIndex = 0; delete newNode._isSingleNode;
-                    globalState.nodes[newNode.id] = newNode; const path = getActivePath();
-                    if (isInsert) {
-                        let parentId = path[pathIndex]; let parent = globalState.nodes[parentId]; let childId = parent.nextIds[parent.activeNextIndex];
-                        newNode.nextIds = [childId]; parent.nextIds[parent.activeNextIndex] = newNode.id;
-                    } else {
-                        let parentId = path[pathIndex]; let parent = globalState.nodes[parentId];
-                        parent.nextIds.push(newNode.id); parent.activeNextIndex = parent.nextIds.length - 1;
-                    }
-                    renderTimeline(); showToast('Phasenvorlage erfolgreich geladen!');
-                    if (!isInsert) setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
-                } catch(err) { showAlert('Fehler beim Lesen der Phasendatei.'); }
-            };
-            reader.readAsText(file); event.target.value = ''; 
-        }
-
         function updateNodeData(id, fid, val) {
             if (globalState.nodes[id]) {
                 globalState.nodes[id][fid] = val;
@@ -454,14 +517,6 @@
                 }
                 autoSave();
             }
-        }
-
-        function calculateMaxTime(nid, memo = {}) {
-            if (!nid || !globalState.nodes[nid]) return 0;
-            if (memo[nid] !== undefined) return memo[nid];
-            let t = Number(globalState.nodes[nid].dauer) || 0; let m = 0;
-            (globalState.nodes[nid].nextIds || []).forEach(nx => m = Math.max(m, calculateMaxTime(nx, memo)));
-            memo[nid] = t + m; return memo[nid];
         }
 
         function renderTimeline() {
@@ -532,7 +587,7 @@
                             </button>
                             <label class="w-6 h-6 bg-slate-100 rounded-full hover:bg-indigo-500 hover:text-white flex justify-center items-center cursor-pointer" title="Vorlage importieren">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                                <input type="file" accept=".json" onchange="importNode(event, ${idx}, true)" class="hidden">
+                                <input type="file" accept=".json" onchange="importNodeFile(event, ${idx}, true)" class="hidden">
                             </label>
                         </div>` : ''}
                     </div>
@@ -550,33 +605,25 @@
                 </button>
                 <label class="bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                    Importieren
-                    <input type="file" accept=".json" onchange="importNode(event, ${p.length - 1}, false)" class="hidden">
+                    Vorlage Laden
+                    <input type="file" accept=".json" onchange="importNodeFile(event, ${p.length - 1}, false)" class="hidden">
                 </label>
             `;
             c.appendChild(fBtn);
 
-            // NEU: Berechnet nur noch die Zeit des aktuell aktiven Pfades (p)
             let tm = 0;
             p.forEach(nid => {
                 const node = globalState.nodes[nid];
-                if (node && !node.isTransition) {
-                    tm += (Number(node.dauer) || 0);
-                }
+                if (node && !node.isTransition) { tm += (Number(node.dauer) || 0); }
             });
             document.getElementById('total-time').innerText = tm;
             
-            autoSave(); // Sichern nach jedem Rendern
+            autoSave();
         }
 
-        // --- NEU: Plan verwalten (Neu, Speichern, Laden) ---
         function createNewPlan() {
             showConfirm('Aktuellen Plan wirklich verwerfen und einen neuen, leeren Plan starten? (Ungespeicherte Änderungen gehen verloren)', () => {
-                currentSaveId = null;
-                initNewState();
-                populateHeaderFields();
-                buildDatalists();
-                renderTimeline();
+                currentSaveId = null; initNewState(); populateHeaderFields(); buildDatalists(); renderTimeline();
                 showToast('Neuer Plan erstellt');
             });
         }
@@ -584,7 +631,6 @@
         function openSaveModal() {
             let defaultName = globalState.headerInfo.thema || 'Unbenannter Plan';
             if(globalState.headerInfo.klasse) defaultName += ' - ' + globalState.headerInfo.klasse;
-            
             document.getElementById('save-name-input').value = defaultName;
             document.getElementById('save-modal').classList.remove('hidden');
         }
@@ -598,57 +644,39 @@
             if (currentSaveId) {
                 let existing = saves.find(s => s.id === currentSaveId);
                 if (existing) {
-                    existing.name = name;
-                    existing.timestamp = new Date().toISOString();
-                    existing.state = globalState;
+                    existing.name = name; existing.timestamp = new Date().toISOString(); existing.state = globalState;
                 } else {
-                    currentSaveId = generateId();
-                    saves.push({ id: currentSaveId, name, timestamp: new Date().toISOString(), state: globalState });
+                    currentSaveId = generateId(); saves.push({ id: currentSaveId, name, timestamp: new Date().toISOString(), state: globalState });
                 }
             } else {
-                currentSaveId = generateId();
-                saves.push({ id: currentSaveId, name, timestamp: new Date().toISOString(), state: globalState });
+                currentSaveId = generateId(); saves.push({ id: currentSaveId, name, timestamp: new Date().toISOString(), state: globalState });
             }
             
-            localStorage.setItem('unterrichtsplaner_saves', JSON.stringify(saves));
-            autoSave();
-            closeSaveModal();
+            localStorage.setItem('unterrichtsplaner_saves', JSON.stringify(saves)); autoSave(); closeSaveModal();
             showToast('Plan gespeichert!');
         }
 
-        function openLoadModal() {
-            renderLoadList();
-            document.getElementById('load-modal').classList.remove('hidden');
-        }
-
+        function openLoadModal() { renderLoadList(); document.getElementById('load-modal').classList.remove('hidden'); }
         function closeLoadModal() { document.getElementById('load-modal').classList.add('hidden'); }
 
         function renderLoadList() {
             let saves = JSON.parse(localStorage.getItem('unterrichtsplaner_saves') || '[]');
             let container = document.getElementById('load-list');
-            if (saves.length === 0) {
-                container.innerHTML = '<p class="text-sm text-slate-500">Keine gespeicherten Pläne gefunden.</p>';
-                return;
-            }
+            if (saves.length === 0) { container.innerHTML = '<p class="text-sm text-slate-500">Keine gespeicherten Pläne gefunden.</p>'; return; }
             
-            saves.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)); // Neueste zuerst
-            
+            saves.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
             let html = '';
             saves.forEach(s => {
                 let dateStr = new Date(s.timestamp).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
                 let isActive = s.id === currentSaveId ? '<span class="bg-green-100 text-green-800 text-[10px] px-2 py-0.5 rounded font-bold ml-2">Aktiv</span>' : '';
                 html += `
                     <div class="flex flex-col sm:flex-row justify-between sm:items-center p-3 border border-slate-200 rounded mb-2 bg-white gap-2 sm:gap-0">
-                        <div>
-                            <div class="font-bold text-sm text-slate-800 flex items-center">${s.name} ${isActive}</div>
-                            <div class="text-xs text-slate-500">Zuletzt gespeichert: ${dateStr}</div>
-                        </div>
+                        <div><div class="font-bold text-sm text-slate-800 flex items-center">${s.name} ${isActive}</div><div class="text-xs text-slate-500">Zuletzt gespeichert: ${dateStr}</div></div>
                         <div class="flex gap-2">
                             <button onclick="loadPlan('${s.id}')" class="px-3 py-1 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded text-xs font-bold transition-colors">Laden</button>
                             <button onclick="deletePlan('${s.id}')" class="px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded text-xs font-bold transition-colors">Löschen</button>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
             container.innerHTML = html;
         }
@@ -657,13 +685,8 @@
             let saves = JSON.parse(localStorage.getItem('unterrichtsplaner_saves') || '[]');
             let s = saves.find(x => x.id === id);
             if (s) {
-                globalState = s.state;
-                currentSaveId = s.id;
-                populateHeaderFields();
-                buildDatalists();
-                renderTimeline();
-                autoSave();
-                closeLoadModal();
+                globalState = s.state; currentSaveId = s.id;
+                populateHeaderFields(); buildDatalists(); renderTimeline(); autoSave(); closeLoadModal();
                 showToast('Plan geladen');
             }
         }
@@ -671,15 +694,154 @@
         function deletePlan(id) {
             showConfirm('Möchtest du diesen gespeicherten Plan wirklich löschen?', () => {
                 let saves = JSON.parse(localStorage.getItem('unterrichtsplaner_saves') || '[]');
-                saves = saves.filter(x => x.id !== id);
-                localStorage.setItem('unterrichtsplaner_saves', JSON.stringify(saves));
+                saves = saves.filter(x => x.id !== id); localStorage.setItem('unterrichtsplaner_saves', JSON.stringify(saves));
                 if(currentSaveId === id) currentSaveId = null;
-                renderLoadList();
-                showToast('Plan gelöscht');
+                renderLoadList(); showToast('Plan gelöscht');
             });
         }
 
-        // --- Stammbaum & Export ---
+        // --- Code In/Out (Copy Paste) & Dateiexport ---
+        function generateJSONData() {
+            autoSave();
+            let vis = new Set(); function m(id) { if(vis.has(id)) return; vis.add(id); (globalState.nodes[id]?.nextIds||[]).forEach(m); }
+            globalState.rootIds.forEach(m); let cN = {}; vis.forEach(id => cN[id] = globalState.nodes[id]);
+            return JSON.stringify({ headerInfo: globalState.headerInfo, schema: globalState.schema, rootIds: globalState.rootIds, activeRoot: globalState.activeRoot, nodes: cN }, null, 2);
+        }
+
+        // --- Export ---
+        function openExportModal() {
+            document.getElementById('export-textarea').value = generateJSONData();
+            document.getElementById('export-modal').classList.remove('hidden');
+        }
+
+        function closeExportModal() { document.getElementById('export-modal').classList.add('hidden'); }
+        
+        function copyExportText() {
+            const ta = document.getElementById('export-textarea');
+            ta.select();
+            document.execCommand('copy');
+            showToast('Code kopiert!');
+        }
+
+        function downloadExportFile() {
+            let exportData = document.getElementById('export-textarea').value;
+            let t = (globalState.headerInfo.thema||'Plan').replace(/[^a-z0-9äöüß-]/gi,'_'); let d = globalState.headerInfo.datum||'Datum'; let k = (globalState.headerInfo.klasse||'Klasse').replace(/[^a-z0-9äöüß-]/gi,'_');
+            const fn = `${t}_${d}_${k}.json`;
+            try {
+                const url = URL.createObjectURL(new Blob([exportData], {type: "application/json"}));
+                const a = document.createElement('a'); a.href = url; a.download = fn; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+                showToast('Datei gespeichert');
+            } catch(e) { showAlert('Fehler beim Download'); }
+        }
+
+        // --- Import ---
+        function openImportModal() {
+            document.getElementById('import-textarea').value = '';
+            document.getElementById('dropzone-file').value = '';
+            document.getElementById('import-modal').classList.remove('hidden');
+        }
+
+        function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); }
+
+        function importFromTextarea() {
+            try {
+                let text = document.getElementById('import-textarea').value;
+                if (!text || text.trim() === '') {
+                    showAlert('Das Textfeld ist leer.'); return;
+                }
+                let p = JSON.parse(text);
+                processImportedJSON(p);
+                closeImportModal();
+            } catch(err) {
+                showAlert('Fehler: Ungültiges JSON-Format.');
+            }
+        }
+
+        function importFromFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const r = new FileReader(); 
+            r.onload = (ev) => {
+                try { 
+                    processImportedJSON(JSON.parse(ev.target.result));
+                    closeImportModal();
+                } catch(err) { 
+                    showAlert('Fehler beim Lesen der Datei.'); 
+                }
+            }; 
+            r.readAsText(file); 
+            e.target.value = ''; 
+        }
+
+        function processImportedJSON(p) {
+            let importedState = p.state ? p.state : p;
+
+            if (importedState.nodes && importedState.rootIds) { 
+                globalState = importedState; 
+                currentSaveId = null;
+                
+                if (!globalState.headerInfo) globalState.headerInfo = { datum: new Date().toISOString().split('T')[0], startzeit: '08:00', klasse: '', thema: '', ziele: '' };
+                if (!globalState.schema || globalState.schema.length === 0) {
+                    globalState.schema = JSON.parse(JSON.stringify(defaultSchema));
+                } else {
+                    globalState.schema = globalState.schema.filter(f => f.id !== 'datum');
+                    globalState.schema.forEach(f => {
+                        if ((f.id === 'lehrer' || f.id === 'sus') && f.width === '2') f.width = '4';
+                    });
+                }
+
+                populateHeaderFields();
+                buildDatalists();
+                renderTimeline(); 
+                autoSave();
+                
+                showToast('Erfolgreich importiert!'); 
+            } else {
+                showAlert('Ungültige Datenstruktur.'); 
+            }
+        }
+
+        function exportNode(nodeId) {
+            const node = globalState.nodes[nodeId];
+            if (!node) return;
+            const nodeCopy = { ...node }; delete nodeCopy.id; delete nodeCopy.nextIds; delete nodeCopy.activeNextIndex; nodeCopy._isSingleNode = true;
+            const jsonStr = JSON.stringify(nodeCopy, null, 2);
+            let phaseName = nodeCopy.isTransition ? 'Uebergang' : (nodeCopy.phase || "Phase");
+            let feinzielText = nodeCopy.isTransition ? (nodeCopy.transitionText || "Leer") : (nodeCopy.feinziel || "OhneFeinziel");
+            let cleanPhase = phaseName.replace(/[^a-z0-9äöüß-]/gi, '_'); let cleanFeinziel = feinzielText.replace(/[^a-z0-9äöüß-]/gi, '_').substring(0, 30);
+            const filename = `Vorlage_${cleanPhase}_${cleanFeinziel}.json`;
+
+            try {
+                const blob = new Blob([jsonStr], { type: "application/json" }); const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url);
+                showToast('Block als Vorlage exportiert!');
+            } catch (error) { showAlert('Export fehlgeschlagen.'); }
+        }
+
+        function importNodeFile(event, pathIndex, isInsert) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (!imported._isSingleNode && !imported.phase && !imported.isTransition) { showAlert('Die gewählte Datei scheint keine gültige Block-Vorlage zu sein.'); return; }
+                    let newNode = { ...imported }; newNode.id = generateId(); newNode.nextIds = []; newNode.activeNextIndex = 0; delete newNode._isSingleNode;
+                    globalState.nodes[newNode.id] = newNode; const path = getActivePath();
+                    
+                    if (isInsert) {
+                        let parentId = path[pathIndex]; let parent = globalState.nodes[parentId]; let childId = parent.nextIds[parent.activeNextIndex];
+                        newNode.nextIds = [childId]; parent.nextIds[parent.activeNextIndex] = newNode.id;
+                    } else {
+                        let parentId = path[pathIndex]; let parent = globalState.nodes[parentId];
+                        parent.nextIds.push(newNode.id); parent.activeNextIndex = parent.nextIds.length - 1;
+                    }
+                    renderTimeline(); showToast('Vorlage erfolgreich eingefügt!');
+                    if (!isInsert) setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+                } catch(err) { showAlert('Fehler beim Lesen der Vorlagen-Datei.'); }
+            };
+            reader.readAsText(file); event.target.value = ''; 
+        }
+
         function openStammbaumModal() { document.getElementById('stammbaum-container').innerHTML = generateStammbaumHTML(globalState.rootIds); document.getElementById('stammbaum-modal').classList.remove('hidden'); }
         function closeStammbaumModal() { document.getElementById('stammbaum-modal').classList.add('hidden'); }
 
@@ -696,7 +858,7 @@
                     let bc = phaseColors[node.phase] || phaseColors['Puffer/Sonstiges']; let cH = '';
                     globalState.schema.forEach(f => {
                         if (f.id !== 'phase' && f.id !== 'dauer' && f.id !== 'datum' && node[f.id]) {
-                            cH += `<div class="mt-2 text-left"><span class="block font-bold text-[9px] text-slate-400 uppercase">${f.label}</span><span class="block text-[11px] text-slate-700 line-clamp-3">${node[f.id].replace(/"/g,'&quot;')}</span></div>`;
+                            cH += `<div class="mt-2 text-left"><span class="block font-bold text-[9px] text-slate-400 uppercase">${f.label}</span><span class="block text-[11px] text-slate-700 line-clamp-3">${node[f.id].toString().replace(/"/g,'&quot;')}</span></div>`;
                         }
                     });
                     html += `<li><div class="stammbaum-node border-t-4 ${bc}"><div class="font-bold text-sm">${node.phase||'Phase'}</div><div class="text-xs text-slate-500">${node.dauer||0} Min.</div>${cH ? `<div class="border-t border-slate-100 mt-2 pt-1">${cH}</div>`:''}</div>`;
@@ -714,6 +876,63 @@
             const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${cont.scrollWidth+40}" height="${cont.scrollHeight+40}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="padding:20px;background:#f8fafc;width:100%;height:100%;box-sizing:border-box;">${svgStyles}<div class="stammbaum-tree">${cont.innerHTML}</div></div></foreignObject></svg>`;
             const a = document.createElement('a'); a.download = `Baumdiagramm_${globalState.headerInfo.datum}.svg`;
             a.href = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' })); a.click(); showToast('Exportiert!');
+        }
+
+        // --- Settings / Schema Verwaltung ---
+        function openSettingsModal() { editingSchema = JSON.parse(JSON.stringify(globalState.schema)); renderSettingsSchema(); document.getElementById('settings-modal').classList.remove('hidden'); }
+        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+        
+        function moveField(idx, dir) {
+            if (idx + dir < 0 || idx + dir >= editingSchema.length) return;
+            const temp = editingSchema[idx];
+            editingSchema[idx] = editingSchema[idx + dir];
+            editingSchema[idx + dir] = temp;
+            renderSettingsSchema();
+        }
+
+        function renderSettingsSchema() {
+            let h = ''; editingSchema.forEach((f, i) => {
+                let sW = (v) => f.width === v ? 'selected' : ''; let sT = (v) => f.type === v ? 'selected' : '';
+                let isChecked = f.showInTable !== false ? 'checked' : '';
+                h += `<div class="flex flex-col gap-2 p-3 border border-slate-200 rounded-lg bg-white mb-3 shadow-sm">
+                    <div class="flex justify-between items-center bg-slate-100 p-2 -mx-3 -mt-3 mb-2 border-b border-slate-200 rounded-t-lg">
+                        <div class="flex gap-1 items-center">
+                            <button onclick="moveField(${i}, -1)" class="px-2 py-1 bg-white border border-slate-300 hover:bg-slate-50 rounded text-xs font-bold ${i===0?'opacity-50 cursor-not-allowed':''}" ${i===0?'disabled':''}>↑</button>
+                            <button onclick="moveField(${i}, 1)" class="px-2 py-1 bg-white border border-slate-300 hover:bg-slate-50 rounded text-xs font-bold ${i===editingSchema.length-1?'opacity-50 cursor-not-allowed':''}" ${i===editingSchema.length-1?'disabled':''}>↓</button>
+                            <span class="ml-2 text-xs font-bold text-slate-500 uppercase">Feld ${i+1}</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <label class="text-xs flex items-center gap-1.5 cursor-pointer bg-white px-2 py-1 border border-slate-200 rounded hover:bg-slate-50">
+                                <input type="checkbox" ${isChecked} onchange="editingSchema[${i}].showInTable = this.checked" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                                <span class="font-bold text-slate-700">In Tabelle</span>
+                            </label>
+                            <button onclick="editingSchema.splice(${i},1);renderSettingsSchema()" class="text-red-600 hover:bg-red-50 px-2 py-1 rounded border border-transparent hover:border-red-200 text-xs font-bold transition-colors">✖ Löschen</button>
+                        </div>
+                    </div>
+                    <div class="flex-grow grid grid-cols-1 sm:grid-cols-4 gap-2 w-full">
+                        <div><label class="text-[10px] font-bold text-slate-500">NAME</label><input type="text" value="${f.label}" oninput="editingSchema[${i}].label=this.value" class="w-full p-1 border rounded text-sm bg-slate-50"></div>
+                        <div><label class="text-[10px] font-bold text-slate-500">TYP</label><select onchange="editingSchema[${i}].type=this.value;renderSettingsSchema()" class="w-full p-1 border rounded text-sm bg-slate-50"><option value="text" ${sT('text')}>Text</option><option value="textarea" ${sT('textarea')}>Area</option><option value="number" ${sT('number')}>Zahl</option><option value="select" ${sT('select')}>Select</option></select></div>
+                        <div><label class="text-[10px] font-bold text-slate-500">BREITE</label><select onchange="editingSchema[${i}].width=this.value" class="w-full p-1 border rounded text-sm bg-slate-50"><option value="1" ${sW('1')}>1/4</option><option value="2" ${sW('2')}>1/2</option><option value="4" ${sW('4')}>Voll</option></select></div>
+                        <div class="${f.type==='select'?'':'opacity-30 pointer-events-none'}"><label class="text-[10px] font-bold text-slate-500">OPTIONS</label><input type="text" value="${f.options||''}" oninput="editingSchema[${i}].options=this.value" class="w-full p-1 border rounded text-sm bg-slate-50"></div>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('settings-schema-list').innerHTML = h;
+        }
+        function addFieldToSchema() { editingSchema.push({ id: 'f_'+generateId(), label: 'Neues Feld', type: 'text', width: '4', options: '', showInTable: true }); renderSettingsSchema(); }
+        function saveSettings() { globalState.schema = JSON.parse(JSON.stringify(editingSchema)); buildDatalists(); renderTimeline(); closeSettingsModal(); showToast('Feld-Einstellungen gespeichert!'); }
+        
+        function exportSchemaFile() {
+            const blob = new Blob([JSON.stringify(editingSchema, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob); const a = document.createElement('a');
+            a.href = url; a.download = "unterricht_knoten_vorlage.json"; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+            showToast('Vorlage exportiert');
+        }
+        
+        function importSchemaFile(e) {
+            const r = new FileReader(); r.onload = (ev) => {
+                try { let imp = JSON.parse(ev.target.result); if(Array.isArray(imp) && imp.length>0 && imp[0].id) { editingSchema = imp; renderSettingsSchema(); showToast('Geladen (Speichern nicht vergessen!)'); } else showAlert('Ungültige Datei'); } catch(err){showAlert('Fehler');}
+            }; r.readAsText(e.target.files[0]); e.target.value='';
         }
 
         function exportTableHTML() {
@@ -747,6 +966,34 @@
                 zieleList = '<li>[Lernziele hier eintragen]</li>';
             }
 
+            // Dynamische Spalten basierend auf Einstellungen filtern
+            // 'dauer', 'feinziel', 'phase', 'sozialform' und 'medien' werden manuell behandelt
+            let tableFields = globalState.schema.filter(f => 
+                f.id !== 'dauer' && f.id !== 'feinziel' && f.id !== 'phase' && 
+                f.id !== 'sozialform' && f.id !== 'medien' && 
+                f.showInTable !== false
+            );
+
+            let sozField = globalState.schema.find(f => f.id === 'sozialform');
+            let medField = globalState.schema.find(f => f.id === 'medien');
+            let showSoz = sozField && sozField.showInTable !== false;
+            let showMed = medField && medField.showInTable !== false;
+            
+            let totalCols = 1 + tableFields.length + (showSoz || showMed ? 1 : 0);
+            
+            let headersHtml = `<th class="time-col">Phase / Zeit</th>`;
+            tableFields.forEach(f => {
+                headersHtml += `<th>${f.label.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</th>`;
+            });
+            
+            // Kopfzeile für die kombinierte Sozialform/Medien Spalte
+            if (showSoz || showMed) {
+                let combinedLabels = [];
+                if (showSoz) combinedLabels.push(sozField.label);
+                if (showMed) combinedLabels.push(medField.label);
+                headersHtml += `<th>${combinedLabels.join(' / ').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</th>`;
+            }
+
             let rowsHtml = '';
             let currentTime = startTime;
 
@@ -754,34 +1001,44 @@
                 let node = globalState.nodes[nid];
                 if (node.isTransition) {
                     let text = (node.transitionText || '').replace(/\n/g, '<br>').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                    rowsHtml += `<tr><td colspan="4" class="transition-row">Übergang: ${text}</td></tr>`;
+                    rowsHtml += `<tr><td colspan="${totalCols}" class="transition-row">Übergang: ${text}</td></tr>`;
                 } else {
                     let nDauer = Number(node.dauer) || 0;
                     let nStartTime = currentTime;
                     let nEndTime = addMinutesToTime(currentTime, nDauer);
                     currentTime = nEndTime;
 
-                    let lAktiv = (node.lehrer || '').replace(/\n/g, '<br>').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                    let sAktiv = (node.sus || '').replace(/\n/g, '<br>').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                    let soz = (node.sozialform || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                    let med = (node.medien || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                    let ziel = (node.feinziel || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-                    if (ziel) {
-                        rowsHtml += `<tr><td colspan="4" class="feinziel-row"><strong>Phase: ${node.phase || 'Phase'} | Feinziel:</strong> ${ziel}</td></tr>`;
+                    // Feinziel als eigene, volle Zeile DARÜBER anzeigen, falls aktiv
+                    let feinzielField = globalState.schema.find(f => f.id === 'feinziel');
+                    if (feinzielField && feinzielField.showInTable !== false) {
+                        let zielVal = (node.feinziel || '').toString().trim().replace(/\n/g, '<br>').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                        if (zielVal) {
+                            rowsHtml += `<tr><td colspan="${totalCols}" class="feinziel-row"><strong>${feinzielField.label.replace(/</g,'&lt;').replace(/>/g,'&gt;')}:</strong> ${zielVal}</td></tr>`;
+                        }
                     }
 
-                    let sozMedHtml = soz;
-                    if (soz && med) sozMedHtml += '<br>';
-                    sozMedHtml += med;
+                    // Phase und Zeit kombiniert in der ersten Spalte
+                    let phaseVal = (node.phase || 'Phase').toString().replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    let rowContent = `<td><strong>${phaseVal}</strong><br><br>[${nStartTime} - ${nEndTime}]<br>(${nDauer} Min.)</td>`;
+                    
+                    tableFields.forEach(f => {
+                        let val = (node[f.id] || '').toString().replace(/\n/g, '<br>').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                        rowContent += `<td>${val}</td>`;
+                    });
 
-                    rowsHtml += `
-                    <tr>
-                        <td><strong>${node.phase || 'Phase'}</strong><br><br>[${nStartTime} - ${nEndTime}]<br>(${nDauer} Min.)</td>
-                        <td>${lAktiv}</td>
-                        <td>${sAktiv}</td>
-                        <td>${sozMedHtml}</td>
-                    </tr>`;
+                    // Kombinierter Inhalt für Sozialform und Medien
+                    if (showSoz || showMed) {
+                        let sozVal = showSoz && node.sozialform ? node.sozialform.toString().replace(/\n/g, '<br>').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+                        let medVal = showMed && node.medien ? node.medien.toString().replace(/\n/g, '<br>').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+                        
+                        let combinedVal = '';
+                        if (sozVal && medVal) combinedVal = `<strong>SF:</strong> ${sozVal}<br><br><strong>M:</strong> ${medVal}`;
+                        else combinedVal = sozVal || medVal;
+                        
+                        rowContent += `<td>${combinedVal}</td>`;
+                    }
+
+                    rowsHtml += `<tr>${rowContent}</tr>`;
                 }
             });
 
@@ -802,11 +1059,8 @@
         th, td { border: 1px solid #000; padding: 10px; vertical-align: top; font-size: 11pt; }
         th { background-color: #e0e0e0; text-align: left; }
         .transition-row { background-color: #f0f8ff; text-align: center; font-style: italic; font-weight: bold; padding: 6px; }
-        .feinziel-row { background-color: #fafafa; font-style: italic; padding: 6px; border-bottom: 2px solid #ccc; }
+        .feinziel-row { background-color: #fafafa; font-style: italic; padding: 6px; border-top: 2px solid #888; border-bottom: 1px dotted #ccc; }
         .time-col { width: 15%; }
-        .teacher-col { width: 30%; }
-        .student-col { width: 30%; }
-        .media-col { width: 25%; }
         .print-btn { display: block; margin: 0 auto 20px auto; padding: 10px 20px; background-color: #2563eb; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; text-align: center; }
         @media print { .print-btn { display: none !important; } }
     </style>
@@ -832,10 +1086,7 @@
     <table>
         <thead>
             <tr>
-                <th class="time-col">Phase / Zeit</th>
-                <th class="teacher-col">Aktivitäten Lehrperson (LP)</th>
-                <th class="student-col">Aktivitäten SuS</th>
-                <th class="media-col">Sozialform / Medien</th>
+                ${headersHtml}
             </tr>
         </thead>
         <tbody>
@@ -848,110 +1099,11 @@
             const blob = new Blob([htmlString], { type: 'text/html;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            
             let themaClean = (globalState.headerInfo.thema || 'Strukturskizze').replace(/[^a-z0-9äöüß-]/gi, '_');
             a.download = `${themaClean}_Tabelle.html`;
             a.href = url;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
+            document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
             showToast('HTML-Tabelle exportiert!');
-        }
-
-        // --- Settings / Schema Verwaltung ---
-        function openSettingsModal() { editingSchema = JSON.parse(JSON.stringify(globalState.schema)); renderSettingsSchema(); document.getElementById('settings-modal').classList.remove('hidden'); }
-        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
-        function renderSettingsSchema() {
-            let h = ''; editingSchema.forEach((f, i) => {
-                let sW = (v) => f.width === v ? 'selected' : ''; let sT = (v) => f.type === v ? 'selected' : '';
-                h += `<div class="flex flex-col sm:flex-row gap-2 p-3 border rounded bg-white items-start sm:items-center"><div class="flex-grow grid grid-cols-4 gap-2 w-full">
-                    <div><label class="text-[10px] font-bold text-slate-500">NAME</label><input type="text" value="${f.label}" oninput="editingSchema[${i}].label=this.value" class="w-full p-1 border rounded text-sm bg-slate-50"></div>
-                    <div><label class="text-[10px] font-bold text-slate-500">TYP</label><select onchange="editingSchema[${i}].type=this.value;renderSettingsSchema()" class="w-full p-1 border rounded text-sm bg-slate-50"><option value="text" ${sT('text')}>Text</option><option value="textarea" ${sT('textarea')}>Area</option><option value="number" ${sT('number')}>Zahl</option><option value="select" ${sT('select')}>Select</option></select></div>
-                    <div><label class="text-[10px] font-bold text-slate-500">BREITE</label><select onchange="editingSchema[${i}].width=this.value" class="w-full p-1 border rounded text-sm bg-slate-50"><option value="1" ${sW('1')}>1/4</option><option value="2" ${sW('2')}>1/2</option><option value="4" ${sW('4')}>Voll</option></select></div>
-                    <div class="${f.type==='select'?'':'opacity-30 pointer-events-none'}"><label class="text-[10px] font-bold text-slate-500">OPTIONS</label><input type="text" value="${f.options||''}" oninput="editingSchema[${i}].options=this.value" class="w-full p-1 border rounded text-sm bg-slate-50"></div>
-                </div><button onclick="editingSchema.splice(${i},1);renderSettingsSchema()" class="text-red-500 ml-2 hover:bg-red-50 p-2 rounded">✖</button></div>`;
-            });
-            document.getElementById('settings-schema-list').innerHTML = h;
-        }
-        function addFieldToSchema() { editingSchema.push({ id: 'f_'+generateId(), label: 'Neues Feld', type: 'text', width: '4', options: '' }); renderSettingsSchema(); }
-        function saveSettings() { globalState.schema = JSON.parse(JSON.stringify(editingSchema)); buildDatalists(); renderTimeline(); closeSettingsModal(); showToast('Feld-Einstellungen gespeichert!'); }
-        
-        function exportSchemaFile() {
-            const blob = new Blob([JSON.stringify(editingSchema, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob); const a = document.createElement('a');
-            a.href = url; a.download = "unterricht_knoten_vorlage.json"; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-            showToast('Vorlage exportiert');
-        }
-        function importSchemaFile(e) {
-            const r = new FileReader(); r.onload = (ev) => {
-                try { let imp = JSON.parse(ev.target.result); if(Array.isArray(imp) && imp.length>0 && imp[0].id) { editingSchema = imp; renderSettingsSchema(); showToast('Geladen (Speichern nicht vergessen!)'); } else showAlert('Ungültige Datei'); } catch(err){showAlert('Fehler');}
-            }; r.readAsText(e.target.files[0]); e.target.value='';
-        }
-
-        // --- Gesamtdaten Export / Import ---
-        function exportJSON() {
-            autoSave(); // NEU: Automatisch im Browser sichern vor dem Datei-Export
-
-            let vis = new Set(); function m(id) { if(vis.has(id)) return; vis.add(id); (globalState.nodes[id]?.nextIds||[]).forEach(m); }
-            globalState.rootIds.forEach(m); let cN = {}; vis.forEach(id => cN[id] = globalState.nodes[id]);
-            
-            let exportData = JSON.stringify({ headerInfo: globalState.headerInfo, schema: globalState.schema, rootIds: globalState.rootIds, activeRoot: globalState.activeRoot, nodes: cN }, null, 2);
-            document.getElementById('export-textarea').value = exportData;
-            
-            let t = (globalState.headerInfo.thema||'Plan').replace(/[^a-z0-9äöüß-]/gi,'_'); let d = globalState.headerInfo.datum||'Datum'; let k = (globalState.headerInfo.klasse||'Klasse').replace(/[^a-z0-9äöüß-]/gi,'_');
-            const fn = `${t}_${d}_${k}.json`;
-            try {
-                const url = URL.createObjectURL(new Blob([exportData], {type: "application/json"}));
-                const a = document.createElement('a'); a.href = url; a.download = fn; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-            } catch(e) {}
-            document.getElementById('export-modal').classList.remove('hidden');
-        }
-        function closeExportModal() { document.getElementById('export-modal').classList.add('hidden'); }
-        function copyExportText() { document.getElementById('export-textarea').select(); document.execCommand('copy'); showToast('In Zwischenablage kopiert!'); }
-        
-        function importJSON(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const r = new FileReader(); 
-            r.onload = (ev) => {
-                try { 
-                    let p = JSON.parse(ev.target.result); 
-                    
-                    // Kompatibilität: Prüfen, ob es das neue (mit Metadaten) oder alte Format ist
-                    let importedState = p.state ? p.state : p;
-
-                    if (importedState.nodes && importedState.rootIds) { 
-                        globalState = importedState; 
-                        currentSaveId = null; // Als neuen Plan laden (nicht an eine bestehende Browser-ID binden)
-                        
-                        // Fallback & Migration für alte Pläne direkt beim Import
-                        if (!globalState.headerInfo) globalState.headerInfo = { datum: new Date().toISOString().split('T')[0], startzeit: '08:00', klasse: '', thema: '', ziele: '' };
-                        if (!globalState.schema || globalState.schema.length === 0) {
-                            globalState.schema = JSON.parse(JSON.stringify(defaultSchema));
-                        } else {
-                            globalState.schema = globalState.schema.filter(f => f.id !== 'datum');
-                            globalState.schema.forEach(f => {
-                                if ((f.id === 'lehrer' || f.id === 'sus') && f.width === '2') f.width = '4';
-                            });
-                        }
-
-                        // Oberfläche aktualisieren statt init() aufzurufen (was den localStorage laden würde)
-                        populateHeaderFields();
-                        buildDatalists();
-                        renderTimeline(); // Löst am Ende automatisch autoSave() aus
-                        
-                        showToast('Plan erfolgreich importiert'); 
-                    } else {
-                        showAlert('Ungültiges Dateiformat.'); 
-                    }
-                } catch(err) { 
-                    showAlert('Fehler beim Lesen der Datei.'); 
-                }
-            }; 
-            r.readAsText(file); 
-            e.target.value = '';
         }
 
         document.addEventListener('DOMContentLoaded', init);
